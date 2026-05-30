@@ -119,3 +119,99 @@ Understand what authentication is and why it exists.
 Understand JWT, password hashing, bcrypt, and refresh tokens.
 Set up auth service folder structure.
 Write the first test before the first line of production code.
+
+
+# Day 2 — 29 April 2026
+
+## Important Decision
+Repository integration tests are intentionally postponed until Phase 10
+when Docker is set up. Unit tests mock the repository layer. Integration
+tests require a real PostgreSQL instance which we will run in a Docker
+container to ensure consistency across all environments including CI/CD.
+
+---
+
+# Day 2 — 29 April 2026
+
+## Goal
+Begin Phase 1a — Auth Service setup. Understand authentication, JWT,
+password hashing, refresh tokens, XSS, CSRF, and write the first
+tested service function using TDD.
+
+## Work Completed
+- Set up package.json with all production and dev dependencies
+- Configured tsconfig.json for TypeScript compilation
+- Configured jest.config.js for test coverage and TypeScript support
+- Created database config with PostgreSQL connection pool
+- Created UserRepository with findByEmail and create methods
+- Created AuthService with signup function
+- Wrote three test cases using TDD before writing service code
+- Completed full red → green → refactor cycle
+- Refactored magic strings to UserRole enum
+- Created UserRole enum in src/types/index.ts
+- All three tests passing with 100% coverage on auth.service.ts
+
+## What I Learned
+- TDD red green refactor cycle — write test first, watch it fail,
+  write minimum code to pass, then refactor
+- What mocking is and why it exists — replace real dependencies
+  with fake versions so unit tests run without a real database
+- The rule for mocking: always mock what the thing you are testing
+  depends on, never mock the thing you are testing itself
+- Why TypeScript interfaces disappear at runtime — they are type
+  definitions only, compiled away to nothing in JavaScript
+- The bootstrap problem — to create an admin you need an admin,
+  solved by a seed script that creates the first admin on deployment
+- Why throw stops execution — all lines after a throw never run,
+  which is why Test 2 does not cover the password hashing line
+- Why enums are safer than plain strings — typos cause compile
+  errors instead of silent runtime bugs
+- What parameterized queries are — passing values separately from
+  SQL prevents SQL injection attacks completely
+- What a connection pool is — reuses database connections instead
+  of opening a new one for every query, much more efficient
+- Why bcrypt salt rounds cannot be set too high — more rounds means
+  slower hashing which protects against attackers but also slows
+  down legitimate users, 10 rounds is the industry standard balance
+
+## Problems Faced
+- Tests failed with "Cannot find name 'describe'" and similar errors
+- Coverage warning: functions coverage below 70% threshold
+
+## How I Solved Them
+- Added "types": ["jest", "node"] to tsconfig.json and included
+  tests folder in TypeScript compilation scope
+- Excluded repositories and config from coverage collection because
+  repositories are mocked in unit tests and tested separately
+  with integration tests in Phase 10 when Docker is set up
+
+## Security Rules Learned
+- Never concatenate user input into SQL queries, always use
+  parameterized queries to prevent SQL injection
+- Never return passwordHash to callers, explicitly construct
+  return objects field by field
+- Public signup endpoint always assigns lowest privilege role,
+  higher roles granted by admins only
+- Never hardcode secrets, always use environment variables
+
+## Commands Used
+```bash
+npm init -y
+npm install express jsonwebtoken bcryptjs dotenv cors helmet express-validator pg
+npm install --save-dev typescript ts-node-dev @types/express @types/jsonwebtoken @types/bcryptjs @types/cors @types/pg jest ts-jest supertest @types/supertest @types/jest
+npx tsc --init
+npm test
+```
+
+## Git Branch
+feature/auth-service-setup
+
+## Commits Made
+- docs(decisions): add ADR-002 auth service phase split
+- feat(auth): add signup service with TDD and UserRepository
+
+## Next Step
+Phase 1a continues — build and test the login function.
+Understand how login differs from signup, how we verify
+passwords with bcrypt compare, and how we generate and
+return JWT access and refresh tokens.
