@@ -12,12 +12,13 @@ export interface CreateUserData{
 
 export interface UserRecord {
 
-  id: string
-  name: string
-  email: string
-  role: string
-  createdAt: Date
-  updatedAt: Date
+    id: string
+    name: string
+    email: string
+    passwordHash: string
+    role: string
+    createdAt: Date
+    updatedAt: Date
 
 
 }
@@ -26,7 +27,8 @@ export class UserRepository {
 
   async findByEmail(email: string): Promise<UserRecord | null> {
     const result = await pool.query(
-      `SELECT id, name, email, role, created_at, updated_at FROM users WHERE email = $1`,[email]
+      'SELECT id, name, email, password_hash as "passwordHash", role, created_at as "createdAt", updated_at as "updatedAt" FROM users WHERE email = $1',
+        [email]
     )
     if (result.rows.length === 0){
       return null
@@ -44,5 +46,13 @@ export class UserRepository {
     return result.rows[0]
 
   }
+
+  async saveRefreshToken(userId: string, token: string): Promise<void> {
+    await pool.query(
+        `INSERT INTO refresh_tokens (user_id, token, expires_at)
+         VALUES ($1, $2, NOW() + INTERVAL '7 days')`,
+        [userId, token]
+    )
+}
 
 }

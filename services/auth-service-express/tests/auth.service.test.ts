@@ -1,5 +1,6 @@
 import { AuthService } from '../src/services/auth.service'
 import { UserRepository } from '../src/repositories/user.repository'
+import bcrypt from 'bcryptjs'
 
 // Tell Jest to replace the real UserRepository with a fake version
 jest.mock('../src/repositories/user.repository')
@@ -29,6 +30,7 @@ describe('AuthService', () => {
         id: '123',
         name: 'Hari',
         email: 'hari@example.com',
+        passwordHash: '$2b$10$somehashedpasswordvalue',
         role: 'DEVELOPER',
         createdAt : new Date(),
         updatedAt : new Date()
@@ -56,6 +58,7 @@ describe('AuthService', () => {
         id: '123',
         name: 'Hari',
         email: 'hari@example.com',
+        passwordHash: '$2b$10$somehashedpasswordvalue',
         role: 'DEVELOPER',
         createdAt: new Date(),
         updatedAt: new Date()
@@ -76,6 +79,7 @@ describe('AuthService', () => {
         id: '123',
         name: 'Hari',
         email: 'hari@example.com',
+        passwordHash: '$2b$10$somehashedpasswordvalue',
         role: 'DEVELOPER',
         createdAt: new Date(),
         updatedAt: new Date()
@@ -94,6 +98,68 @@ describe('AuthService', () => {
 
 
   })
+
+  describe('login', () => {
+
+    it('should return access token and user info when credentials are valid', async () => {
+
+        const realHash = await bcrypt.hash('correctpassword', 10)
+        // Arrange
+        mockUserRepository.prototype.findByEmail.mockResolvedValue({
+            id: '123',
+            name: 'Hari',
+            email: 'hari@example.com',
+            passwordHash: realHash,
+            role: 'DEVELOPER',
+            createdAt: new Date(),
+            updatedAt: new Date()
+        })
+
+        // Act
+        const result = await authService.login(
+            'hari@example.com',
+            'correctpassword'
+        )
+
+        // Assert
+        expect(result).toHaveProperty('accessToken')
+        expect(result).toHaveProperty('user')
+        expect(result.user).toHaveProperty('id', '123')
+        expect(result.user).toHaveProperty('email', 'hari@example.com')
+        expect(result.user).not.toHaveProperty('passwordHash')
+    })
+
+    it('should throw invalid error when email does not exist', async () => {
+        // Arrange
+        mockUserRepository.prototype.findByEmail.mockResolvedValue(null)
+
+        // Act and Assert
+        await expect(
+            authService.login('unknown@example.com', 'somepassword')
+        ).rejects.toThrow('Invalid email or password')
+    })
+
+    it('should throw invalid error when password is wrong', async () => {
+
+        
+        // Arrange
+        mockUserRepository.prototype.findByEmail.mockResolvedValue({
+            id: '123',
+            name: 'Hari',
+            email: 'hari@example.com',
+            passwordHash: '$2b$10$somehashedpasswordvalue',
+            role: 'DEVELOPER',
+            createdAt: new Date(),
+            updatedAt: new Date()
+        })
+
+        // Act and Assert
+        await expect(
+            authService.login('hari@example.com', 'wrongpassword')
+        ).rejects.toThrow('Invalid email or password')
+    })
+
+})
 
 
 })

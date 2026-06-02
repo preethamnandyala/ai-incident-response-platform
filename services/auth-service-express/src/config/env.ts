@@ -1,0 +1,20 @@
+import dotenv from 'dotenv'
+
+dotenv.config()
+
+export const env = {
+    jwt: {
+        accessSecret: process.env.JWT_ACCESS_SECRET || '',
+        refreshSecret: process.env.JWT_REFRESH_SECRET || '',
+        accessExpiry: process.env.JWT_ACCESS_EXPIRY || '15m',
+        refreshExpiry: process.env.JWT_REFRESH_EXPIRY || '7d'
+    },
+    db: {
+        host: process.env.DB_HOST || 'localhost',
+        port: Number(process.env.DB_PORT) || 5432,
+        name: process.env.DB_NAME || 'incident_platform',
+        user: process.env.DB_USER || 'postgres',
+        password: process.env.DB_PASSWORD || ''
+    },
+    port: Number(process.env.PORT) || 3001
+}
