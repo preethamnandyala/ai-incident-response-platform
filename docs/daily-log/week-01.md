@@ -215,3 +215,136 @@ Phase 1a continues — build and test the login function.
 Understand how login differs from signup, how we verify
 passwords with bcrypt compare, and how we generate and
 return JWT access and refresh tokens.
+
+---
+
+# Day 3 — 31 May 2026
+
+## Goal
+Complete Phase 1a service layer — build and test login, logout,
+refresh, and me functions using TDD.
+
+## Work Completed
+- Added login service with bcrypt password verification
+- Added JWT access token generation with environment config
+- Added refresh token generation and database storage
+- Added logout service with refresh token deletion
+- Added refresh service with JWT verification and database lookup
+- Added me service returning user profile without passwordHash
+- Added findById, findRefreshToken, deleteRefreshToken to UserRepository
+- Updated UserRecord interface to include passwordHash for login
+- Added column aliasing in SQL queries for camelCase compatibility
+- Created env.ts config file for centralised environment variable access
+- Updated database.ts to use env.ts instead of process.env directly
+- Added .env file with JWT secrets, database config, and port
+- Added .env.example with empty values for other developers
+- Written 14 tests covering all functions with 100% coverage
+- Added edge case test — user deleted but refresh token still valid
+- Completed full red green refactor cycle for all five functions
+
+## What I Learned
+
+### Salt in bcrypt
+A salt is a random value added to each password before hashing.
+Without salt, two users with the same password get the same hash.
+With salt, every hash is unique even for identical passwords.
+The salt is embedded inside the hash itself so bcrypt.compare
+can extract it automatically during password verification.
+Salt makes rainbow table attacks impossible.
+
+### User enumeration attacks
+Never return different error messages for different failure scenarios.
+Login returns "Invalid email or password" for both wrong email AND
+wrong password. This prevents attackers from discovering which
+emails exist in the system by observing error messages.
+Same principle applies to refresh token errors.
+
+### Why middleware extracts userId not the request body
+The me endpoint receives userId from the JWT token via middleware,
+not from req.body. If userId came from the request body, anyone
+could send any userId and access any account. The JWT middleware
+extracts and verifies the userId from the signed token, proving
+the user is who they claim to be.
+
+### Why service layer does not set HTTP-only cookies
+Service layer has no knowledge of HTTP. It just returns data.
+The controller layer receives the refresh token from the service
+and sets it as an HTTP-only cookie on the HTTP response.
+Clean separation — service handles business logic,
+controller handles HTTP concerns.
+
+### Why refresh function needs both JWT verification and database lookup
+JWT verification alone is not enough because a logged out token
+could still have a valid signature. Database lookup alone is not
+enough because anyone could insert a fake token. Both together
+provide complete verification — JWT proves we issued the token,
+database proves it was not revoked.
+
+### Column aliasing in PostgreSQL queries
+PostgreSQL uses snake_case column names (password_hash, created_at)
+but TypeScript uses camelCase (passwordHash, createdAt).
+Using AS in SELECT queries maps database names to TypeScript names:
+SELECT password_hash as "passwordHash"
+Without aliasing, user.passwordHash returns undefined silently.
+
+### Why bcrypt hashing is the most important security decision
+If the database is stolen, attackers get hashes not passwords.
+Hashes cannot be reversed. Salt prevents rainbow table attacks.
+10 rounds makes brute force attacks take years.
+Developer privacy — even developers cannot see user passwords.
+Everything else protects the session. Hashing protects identity.
+
+### Scheduled cleanup for expired tokens
+Expired refresh tokens accumulate in the database over time.
+The solution is a scheduled cleanup job running nightly:
+DELETE FROM refresh_tokens WHERE expires_at < NOW()
+We implement this in Phase 13 monitoring and maintenance.
+
+## Problems Faced
+- bcrypt.compare returned false in login test because mock used
+  a fake hash string instead of a real bcrypt hash
+- Line 142 not covered — user deleted but refresh token still valid
+  edge case was missing from tests
+
+## How I Solved Them
+- Generated a real bcrypt hash inside the test using bcrypt.hash()
+  so bcrypt.compare has a genuine hash to verify against
+- Added a fourth refresh test covering the user deleted edge case
+  bringing coverage back to 100% on all metrics
+
+## Security Rules Learned
+- Never return specific error messages that reveal which check failed
+- Password hashing is the foundation of all auth security
+- Both JWT verification AND database lookup required for refresh
+- Service layer must never handle HTTP concerns like cookies
+- Expired tokens need scheduled cleanup not immediate deletion
+
+## Commands Used
+```bash
+npm test
+git add .
+git commit -m "feat(auth): add logout, refresh, and me service methods"
+git push origin feature/auth-service-setup
+```
+
+## Git Branch
+feature/auth-service-setup
+
+## Commits Made
+- feat(auth): add login service with JWT generation and refresh token
+- feat(auth): add logout, refresh, and me service methods with full test coverage
+
+## Test Coverage
+- 14 tests passing
+- 100% statements
+- 100% branches
+- 100% functions
+- 100% lines
+
+## Next Step
+Phase 1a continues — build validators layer.
+Enforce password strength rules, email format validation,
+name validation, and input sanitization against XSS.
+Password policy: minimum 8 characters, uppercase, lowercase,
+number, special character, no more than 2 consecutive repeating
+characters, cannot contain name or email.
