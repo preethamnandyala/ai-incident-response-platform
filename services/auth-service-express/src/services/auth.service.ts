@@ -109,4 +109,62 @@ export class AuthService{
         }
     }
  }
+
+ async logout(refreshToken: string): Promise<void> {
+    if (!refreshToken) {
+        throw new Error('Refresh token is required')
+    }
+
+    await this.userRepository.deleteRefreshToken(refreshToken)
+}
+
+async refresh(refreshToken: string): Promise<{ accessToken: string }> {
+    // Verify JWT signature first
+    let payload: { userId: string }
+    try {
+        payload = jwt.verify(
+            refreshToken,
+            env.jwt.refreshSecret
+        ) as { userId: string }
+    } catch {
+        throw new Error('Invalid refresh token')
+    }
+
+    // Check token exists in database
+    const storedToken = await this.userRepository.findRefreshToken(refreshToken)
+    if (!storedToken) {
+        throw new Error('Invalid refresh token')
+    }
+
+    // Find user
+    const user = await this.userRepository.findById(payload.userId)
+    if (!user) {
+        throw new Error('Invalid refresh token')
+    }
+
+    // Generate new access token
+    const accessToken = jwt.sign(
+        { userId: user.id, role: user.role },
+        env.jwt.accessSecret,
+        { expiresIn: env.jwt.accessExpiry as '15m' }
+    )
+
+    return { accessToken }
+}
+
+async me(userId: string): Promise<SignupResult> {
+    const user = await this.userRepository.findById(userId)
+    if (!user) {
+        throw new Error('User not found')
+    }
+
+    return {
+        id: user.id,
+        name: user.name,
+        email: user.email,
+        role: user.role as UserRole,
+        createdAt: user.createdAt,
+        updatedAt: user.updatedAt
+    }
+}
 }

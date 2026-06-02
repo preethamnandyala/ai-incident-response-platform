@@ -1,6 +1,8 @@
 import { AuthService } from '../src/services/auth.service'
 import { UserRepository } from '../src/repositories/user.repository'
 import bcrypt from 'bcryptjs'
+import jwt from 'jsonwebtoken'
+import { env } from '../src/config/env'
 
 // Tell Jest to replace the real UserRepository with a fake version
 jest.mock('../src/repositories/user.repository')
@@ -157,6 +159,140 @@ describe('AuthService', () => {
         await expect(
             authService.login('hari@example.com', 'wrongpassword')
         ).rejects.toThrow('Invalid email or password')
+    })
+
+})
+
+describe('logout', () => {
+
+    it('should delete refresh token from database', async () => {
+        // Arrange
+        mockUserRepository.prototype.deleteRefreshToken.mockResolvedValue(undefined)
+
+        // Act
+        await authService.logout('some-refresh-token')
+
+        // Assert
+        expect(mockUserRepository.prototype.deleteRefreshToken)
+            .toHaveBeenCalledWith('some-refresh-token')
+    })
+
+    it('should throw error when refresh token is not provided', async () => {
+        await expect(
+            authService.logout('')
+        ).rejects.toThrow('Refresh token is required')
+    })
+
+})
+
+describe('refresh', () => {
+
+    it('should return new access token when refresh token is valid', async () => {
+        // Arrange
+        const validRefreshToken = jwt.sign(
+            { userId: '123' },
+            env.jwt.refreshSecret,
+            { expiresIn: '7d' }
+        )
+
+        mockUserRepository.prototype.findRefreshToken.mockResolvedValue({
+            userId: '123',
+            token: validRefreshToken
+        })
+
+        mockUserRepository.prototype.findById.mockResolvedValue({
+            id: '123',
+            name: 'Hari',
+            email: 'hari@example.com',
+            passwordHash: '$2b$10$somehashedpasswordvalue',
+            role: 'DEVELOPER',
+            createdAt: new Date(),
+            updatedAt: new Date()
+        })
+
+        // Act
+        const result = await authService.refresh(validRefreshToken)
+
+        // Assert
+        expect(result).toHaveProperty('accessToken')
+    })
+
+    it('should throw error when refresh token is invalid', async () => {
+        await expect(
+            authService.refresh('invalid-token')
+        ).rejects.toThrow('Invalid refresh token')
+    })
+
+    it('should throw error when refresh token not found in database', async () => {
+        // Arrange
+        const validRefreshToken = jwt.sign(
+            { userId: '123' },
+            env.jwt.refreshSecret,
+            { expiresIn: '7d' }
+        )
+
+        mockUserRepository.prototype.findRefreshToken.mockResolvedValue(null)
+
+        // Act and Assert
+        await expect(
+            authService.refresh(validRefreshToken)
+        ).rejects.toThrow('Invalid refresh token')
+    })
+
+    it('should throw error when user no longer exists', async () => {
+    // Arrange
+    const validRefreshToken = jwt.sign(
+        { userId: '123' },
+        env.jwt.refreshSecret,
+        { expiresIn: '7d' }
+    )
+
+    mockUserRepository.prototype.findRefreshToken.mockResolvedValue({
+        userId: '123',
+        token: validRefreshToken
+    })
+
+    mockUserRepository.prototype.findById.mockResolvedValue(null)
+
+    // Act and Assert
+    await expect(
+        authService.refresh(validRefreshToken)
+    ).rejects.toThrow('Invalid refresh token')
+  })
+
+})
+
+describe('me', () => {
+
+    it('should return user details without passwordHash', async () => {
+        // Arrange
+        mockUserRepository.prototype.findById.mockResolvedValue({
+            id: '123',
+            name: 'Hari',
+            email: 'hari@example.com',
+            passwordHash: '$2b$10$somehashedpasswordvalue',
+            role: 'DEVELOPER',
+            createdAt: new Date(),
+            updatedAt: new Date()
+        })
+
+        // Act
+        const result = await authService.me('123')
+
+        // Assert
+        expect(result).toHaveProperty('id', '123')
+        expect(result).toHaveProperty('email', 'hari@example.com')
+        expect(result).not.toHaveProperty('passwordHash')
+    })
+
+    it('should throw error when user not found', async () => {
+        // Arrange
+        mockUserRepository.prototype.findById.mockResolvedValue(null)
+
+        // Act and Assert
+        await expect(
+            authService.me('nonexistent-id')
+        ).rejects.toThrow('User not found')
     })
 
 })

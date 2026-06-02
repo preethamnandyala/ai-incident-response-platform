@@ -1,15 +1,15 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<coverage generated="1780417490177" clover="3.2.0">
-  <project timestamp="1780417490177" name="All files">
-    <metrics statements="22" coveredstatements="22" conditionals="6" coveredconditionals="6" methods="3" coveredmethods="3" elements="31" coveredelements="31" complexity="0" loc="22" ncloc="22" packages="1" files="1" classes="1"/>
+<coverage generated="1780422895774" clover="3.2.0">
+  <project timestamp="1780422895774" name="All files">
+    <metrics statements="40" coveredstatements="40" conditionals="14" coveredconditionals="14" methods="6" coveredmethods="6" elements="60" coveredelements="60" complexity="0" loc="40" ncloc="40" packages="1" files="1" classes="1"/>
     <file name="auth.service.ts" path="C:\Users\preet\ai-incident-response-platform\services\auth-service-express\src\services\auth.service.ts">
-      <metrics statements="22" coveredstatements="22" conditionals="6" coveredconditionals="6" methods="3" coveredmethods="3"/>
+      <metrics statements="40" coveredstatements="40" conditionals="14" coveredconditionals="14" methods="6" coveredmethods="6"/>
       <line num="1" count="1" type="stmt"/>
       <line num="2" count="1" type="stmt"/>
       <line num="3" count="1" type="stmt"/>
       <line num="5" count="1" type="stmt"/>
       <line num="28" count="1" type="stmt"/>
-      <line num="33" count="6" type="stmt"/>
+      <line num="33" count="14" type="stmt"/>
       <line num="42" count="3" type="stmt"/>
       <line num="43" count="3" type="cond" truecount="2" falsecount="0"/>
       <line num="44" count="1" type="stmt"/>
@@ -26,6 +26,24 @@
       <line num="91" count="1" type="stmt"/>
       <line num="98" count="1" type="stmt"/>
       <line num="101" count="1" type="stmt"/>
+      <line num="114" count="2" type="cond" truecount="2" falsecount="0"/>
+      <line num="115" count="1" type="stmt"/>
+      <line num="118" count="1" type="stmt"/>
+      <line num="124" count="4" type="stmt"/>
+      <line num="125" count="4" type="stmt"/>
+      <line num="130" count="1" type="stmt"/>
+      <line num="134" count="3" type="stmt"/>
+      <line num="135" count="3" type="cond" truecount="2" falsecount="0"/>
+      <line num="136" count="1" type="stmt"/>
+      <line num="140" count="2" type="stmt"/>
+      <line num="141" count="2" type="cond" truecount="2" falsecount="0"/>
+      <line num="142" count="1" type="stmt"/>
+      <line num="146" count="1" type="stmt"/>
+      <line num="152" count="1" type="stmt"/>
+      <line num="156" count="2" type="stmt"/>
+      <line num="157" count="2" type="cond" truecount="2" falsecount="0"/>
+      <line num="158" count="1" type="stmt"/>
+      <line num="161" count="1" type="stmt"/>
     </file>
   </project>
 </coverage>
