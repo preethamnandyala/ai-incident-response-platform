@@ -34,3 +34,17 @@ Decisions made:
   ADR-002 — auth service phase split
 Blockers: none
 My biggest confusion right now: none
+
+# Project Status
+
+Date: 1 June 2026
+Current phase: Phase 1a — Auth Service
+Completed phases: Phase 0
+In progress: Auth service — validators done, signup controller done,
+              4 more controllers + routes + middleware + app.ts remain
+Last commit: docs(daily-log): add day 4 session log
+Decisions made:
+  ADR-001 — use monorepo structure
+  ADR-002 — auth service phase split
+Blockers: none
+My biggest confusion right now: none
