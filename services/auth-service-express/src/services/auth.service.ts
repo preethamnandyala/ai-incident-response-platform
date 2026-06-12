@@ -3,6 +3,7 @@ import  jwt  from 'jsonwebtoken'
 import { env } from '../config/env'
 import { UserRepository } from '../repositories/user.repository'
 import { UserRole } from '../types/index'
+import { ConflictError, UnauthorizedError, NotFoundError, BadRequestError } from '../utils/errors'
 
 export interface SignupResult{
 
@@ -41,7 +42,7 @@ export class AuthService{
 
     const existingUser = await this.userRepository.findByEmail(email)
     if (existingUser) {
-      throw new Error('Email already exists')
+      throw new ConflictError('Email already exists')
     }
 
     const passwordHash = await bcrypt.hash(password, 10)
@@ -71,13 +72,13 @@ export class AuthService{
     // Find user by email
     const user = await this.userRepository.findByEmail(email)
     if (!user) {
-        throw new Error('Invalid email or password')
+        throw new UnauthorizedError('Invalid email or password')
     }
 
     // Verify password
     const isPasswordValid = await bcrypt.compare(password, user.passwordHash)
     if (!isPasswordValid) {
-        throw new Error('Invalid email or password')
+        throw new UnauthorizedError('Invalid email or password')
     }
 
     // Generate access token
@@ -112,7 +113,7 @@ export class AuthService{
 
  async logout(refreshToken: string): Promise<void> {
     if (!refreshToken) {
-        throw new Error('Refresh token is required')
+        throw new BadRequestError('Refresh token is required')
     }
 
     await this.userRepository.deleteRefreshToken(refreshToken)
@@ -127,19 +128,19 @@ async refresh(refreshToken: string): Promise<{ accessToken: string }> {
             env.jwt.refreshSecret
         ) as { userId: string }
     } catch {
-        throw new Error('Invalid refresh token')
+        throw new UnauthorizedError('Invalid refresh token')
     }
 
     // Check token exists in database
     const storedToken = await this.userRepository.findRefreshToken(refreshToken)
     if (!storedToken) {
-        throw new Error('Invalid refresh token')
+        throw new UnauthorizedError('Invalid refresh token')
     }
 
     // Find user
     const user = await this.userRepository.findById(payload.userId)
     if (!user) {
-        throw new Error('Invalid refresh token')
+        throw new UnauthorizedError('Invalid refresh token')
     }
 
     // Generate new access token
@@ -155,7 +156,7 @@ async refresh(refreshToken: string): Promise<{ accessToken: string }> {
 async me(userId: string): Promise<SignupResult> {
     const user = await this.userRepository.findById(userId)
     if (!user) {
-        throw new Error('User not found')
+        throw new NotFoundError('User not found')
     }
 
     return {
