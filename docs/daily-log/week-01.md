@@ -348,3 +348,165 @@ name validation, and input sanitization against XSS.
 Password policy: minimum 8 characters, uppercase, lowercase,
 number, special character, no more than 2 consecutive repeating
 characters, cannot contain name or email.
+
+
+---
+
+# Day 4 — 1 June 2026
+
+## Goal
+Build validators layer for signup and login, then begin controllers
+layer starting with signup controller, using TDD throughout.
+
+## Work Completed
+- Created validateSignup and validateLogin validators using express-validator
+- Implemented name validation: required, length, letters/spaces/hyphens/apostrophes
+- Implemented email validation: required, valid format, normalized to lowercase
+- Implemented password validation: length, uppercase, lowercase, number,
+  special character, no more than 2 consecutive repeating characters
+- Created shared password.utils.ts with PASSWORD_REGEX and
+  hasRepeatingCharacters for reuse in future password reset
+- Wrote 13 validator tests covering valid and invalid cases for both
+  signup and login, including edge cases like apostrophes in names
+  and special characters beyond the basic set
+- Created custom error classes — AppError, ConflictError,
+  UnauthorizedError, NotFoundError, BadRequestError — each carrying
+  an HTTP status code
+- Refactored auth.service.ts to throw custom error classes instead
+  of plain Error objects
+- Created AuthController with constructor-injected AuthService
+- Built signup controller method with try/catch error handling
+  mapping AppError instances to correct status codes and unknown
+  errors to 500
+- Wrote 3 controller tests mocking AuthService, req, and res
+- All 30 tests passing across 3 test suites with 100% coverage
+
+## What I Learned
+
+### bail() in express-validator
+bail() stops running further validation rules on a field once one
+rule fails. Without it, a single invalid field produces multiple
+error messages stacked together. With bail(), one field produces
+one clear error message.
+
+### Regex lookaheads for password validation
+(?=.*[A-Z]) is a lookahead — it checks if an uppercase letter exists
+anywhere in the string without consuming characters. Multiple
+lookaheads combined let one regex check multiple independent
+conditions on the same string.
+
+### Repeating character detection
+/(.)\1\1/ uses a capture group (.) and backreferences \1 to detect
+any character repeated three times in a row, used to reject
+passwords like "Seeecure1!"
+
+### HTTP status codes — precise meanings
+200 OK - success
+201 Created - new resource created (signup)
+400 Bad Request - invalid input from client
+401 Unauthorized - identity not proven (wrong password, invalid token)
+403 Forbidden - identity proven but action not permitted
+404 Not Found - resource does not exist
+409 Conflict - request conflicts with existing data (duplicate email)
+500 Internal Server Error - unexpected server-side failure
+
+### Custom error classes with status codes
+AppError extends Error and adds a statusCode property. Subclasses
+like ConflictError(409) and UnauthorizedError(401) let the service
+layer throw meaningful errors that the controller can map directly
+to HTTP responses using error.statusCode, instead of checking
+error message strings everywhere.
+
+### Object.setPrototypeOf and the prototype chain
+The prototype chain is the sequence of linked objects JavaScript
+searches through to find properties and methods. instanceof checks
+whether a class's prototype exists in that chain. Extending the
+built-in Error class in TypeScript can break this chain during
+compilation, so Object.setPrototypeOf(this, AppError.prototype)
+manually repairs it, guaranteeing instanceof AppError works
+correctly in the error handler.
+
+### Dependency injection in controllers
+A controller that creates its own service instance internally
+(const authService = new AuthService(...) at module level) can
+never have that dependency replaced in a test — it is locked inside
+the file. A controller that receives its dependency through the
+constructor allows tests to pass in a mocked version completely.
+The real instances are wired together in one place — app.ts —
+called the composition root.
+
+### Mocked class vs mocked instance
+jest.mock() replaces an entire class including its constructor.
+new MockedClass(anything) returns a mock instance regardless of
+constructor arguments, because the real constructor never runs.
+mockClass.prototype.methodName.mockResolvedValue() configures what
+that mocked method returns for any instance created from it.
+
+### Mocking res.status().json() method chaining
+res.status(201).json(data) is method chaining. To mock this,
+statusMock is a jest.fn() that returns { json: jsonMock }, so
+calling statusMock(201) returns an object with a json method,
+and .json(data) calls jsonMock(data). Both can then be asserted on.
+
+### expect.objectContaining
+Used to assert that a returned object contains specific key-value
+pairs without requiring an exact match of every field, useful when
+the full object has many fields but only some matter for the test.
+
+## Problems Faced
+- Confused about why module-level service instantiation in
+  auth.controller.ts breaks testability
+- Confused about difference between mockUserRepository (the class)
+  and new UserRepository() (an instance) and why AuthService
+  constructor requires the instance not the class
+
+## How I Solved Them
+- Used restaurant/chef analogy — a chef with his own locked supply
+  closet cannot be tested with fake ingredients, but a chef handed
+  a tray of ingredients can be tested with anything handed to him
+- Clarified that AuthService constructor type is UserRepository
+  (an instance type), so mockUserRepository (typeof UserRepository,
+  the class) cannot be passed directly — only new UserRepository()
+  produces a value of the correct instance type, while
+  mockUserRepository.prototype is used separately to configure
+  mock method return values
+
+## Security Rules Learned
+- Never expose internal error details (database errors, stack traces)
+  to clients — always fall back to generic 500 for unknown errors
+- Map specific known errors (AppError subclasses) to specific status
+  codes, everything else becomes "Internal server error"
+
+## Test Coverage
+
+30 tests passing
+
+3 test suites
+
+100% statements, branches, functions, lines
+
+## Commands Used
+```bash
+npm test
+git add .
+git commit -m "feat(auth): add signup and login validators with shared password rules"
+git commit -m "refactor(auth): use custom error classes with status codes"
+git commit -m "feat(auth): add signup controller with constructor injection and custom errors"
+git push origin feature/auth-service-setup
+```
+
+## Git Branch
+feature/auth-service-setup
+
+## Commits Made
+- feat(auth): add signup and login validators with shared password rules
+- refactor(auth): use custom error classes with status codes
+- feat(auth): add signup controller with constructor injection and custom errors
+
+## Next Step
+Phase 1a continues — build remaining controller methods:
+login, logout, refresh, me. Each follows the same pattern as
+signup controller. Then build routes layer, JWT middleware,
+and finally app.ts and server.ts to wire everything together
+and run the auth service for the first time.
+
