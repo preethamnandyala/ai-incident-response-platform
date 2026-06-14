@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<coverage generated="1781395498832" clover="3.2.0">
-  <project timestamp="1781395498832" name="All files">
-    <metrics statements="105" coveredstatements="105" conditionals="26" coveredconditionals="26" methods="19" coveredmethods="19" elements="150" coveredelements="150" complexity="0" loc="105" ncloc="105" packages="4" files="5" classes="5"/>
+<coverage generated="1781460694789" clover="3.2.0">
+  <project timestamp="1781460694790" name="All files">
+    <metrics statements="119" coveredstatements="119" conditionals="30" coveredconditionals="30" methods="20" coveredmethods="20" elements="169" coveredelements="169" complexity="0" loc="119" ncloc="119" packages="5" files="6" classes="6"/>
     <package name="controllers">
       <metrics statements="40" coveredstatements="40" conditionals="10" coveredconditionals="10" methods="6" coveredmethods="6"/>
       <file name="auth.controller.ts" path="C:\Users\preet\ai-incident-response-platform\services\auth-service-express\src\controllers\auth.controller.ts">
@@ -46,6 +46,26 @@
         <line num="101" count="2" type="cond" truecount="2" falsecount="0"/>
         <line num="102" count="1" type="stmt"/>
         <line num="104" count="1" type="stmt"/>
+      </file>
+    </package>
+    <package name="middlewares">
+      <metrics statements="14" coveredstatements="14" conditionals="4" coveredconditionals="4" methods="1" coveredmethods="1"/>
+      <file name="auth.middleware.ts" path="C:\Users\preet\ai-incident-response-platform\services\auth-service-express\src\middlewares\auth.middleware.ts">
+        <metrics statements="14" coveredstatements="14" conditionals="4" coveredconditionals="4" methods="1" coveredmethods="1"/>
+        <line num="2" count="1" type="stmt"/>
+        <line num="3" count="1" type="stmt"/>
+        <line num="5" count="1" type="stmt"/>
+        <line num="10" count="5" type="stmt"/>
+        <line num="12" count="5" type="cond" truecount="4" falsecount="0"/>
+        <line num="13" count="2" type="stmt"/>
+        <line num="14" count="2" type="stmt"/>
+        <line num="17" count="3" type="stmt"/>
+        <line num="19" count="3" type="stmt"/>
+        <line num="20" count="3" type="stmt"/>
+        <line num="25" count="1" type="stmt"/>
+        <line num="27" count="1" type="stmt"/>
+        <line num="29" count="2" type="stmt"/>
+        <line num="30" count="2" type="stmt"/>
       </file>
     </package>
     <package name="services">
