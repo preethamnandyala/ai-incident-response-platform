@@ -52,4 +52,58 @@ export class AuthController {
 
     }
 
+    async logout(req: Request, res: Response): Promise<void> {
+        const refreshToken = req.cookies?.refreshToken
+
+        try {
+            await this.authService.logout(refreshToken)
+
+            res.clearCookie('refreshToken', {
+                httpOnly: true,
+                secure: true,
+                sameSite: 'strict'
+            })
+
+            res.status(200).json({ message: 'Logged out successfully' })
+        } catch (error) {
+            if (error instanceof AppError) {
+                res.status(error.statusCode).json({ error: error.message })
+            } else {
+                res.status(500).json({ error: 'Internal server error' })
+            }
+        }
+    }
+
+    async refresh(req: Request, res: Response): Promise<void> {
+        const refreshToken = req.cookies?.refreshToken
+
+        try {
+            const result = await this.authService.refresh(refreshToken)
+
+            res.status(200).json({ accessToken: result.accessToken })
+        } catch (error) {
+            if (error instanceof AppError) {
+                res.status(error.statusCode).json({ error: error.message })
+            } else {
+                res.status(500).json({ error: 'Internal server error' })
+            }
+        }
+    }
+
+    async me(req: Request, res: Response): Promise<void> {
+        const userId = (req as any).user?.userId
+
+        try {
+            const result = await this.authService.me(userId)
+
+            res.status(200).json(result)
+        } catch (error) {
+            if (error instanceof AppError) {
+                res.status(error.statusCode).json({ error: error.message })
+            } else {
+                res.status(500).json({ error: 'Internal server error' })
+            }
+        }
+    }
+
 }

@@ -1,7 +1,7 @@
 import { Request, Response } from 'express'
 import { AuthController } from '../src/controllers/auth.controller'
 import { AuthService } from '../src/services/auth.service'
-import { ConflictError, UnauthorizedError } from '../src/utils/errors'
+import { ConflictError, UnauthorizedError, BadRequestError, NotFoundError } from '../src/utils/errors'
 
 jest.mock('../src/services/auth.service')
 
@@ -149,6 +149,153 @@ describe('AuthController', () => {
           expect(jsonMock).toHaveBeenCalledWith({ error: 'Internal server error' })
       })
 
-  })
+    })
+
+    describe('logout', () => {
+
+        it('should return 200 and clear cookie on successful logout', async () => {
+            mockAuthService.logout.mockResolvedValue(undefined)
+
+            const clearCookieMock = jest.fn()
+            res.clearCookie = clearCookieMock
+
+            req.cookies = { refreshToken: 'fake-refresh-token' }
+
+            await authController.logout(req as Request, res as Response)
+
+            expect(mockAuthService.logout).toHaveBeenCalledWith('fake-refresh-token')
+            expect(clearCookieMock).toHaveBeenCalledWith(
+                'refreshToken',
+                expect.objectContaining({ httpOnly: true })
+            )
+            expect(statusMock).toHaveBeenCalledWith(200)
+            expect(jsonMock).toHaveBeenCalledWith({ message: 'Logged out successfully' })
+        })
+
+        it('should return 400 when refresh token is missing', async () => {
+            mockAuthService.logout.mockRejectedValue(
+                new BadRequestError('Refresh token is required')
+            )
+
+            req.cookies = {}
+
+            await authController.logout(req as Request, res as Response)
+
+            expect(statusMock).toHaveBeenCalledWith(400)
+            expect(jsonMock).toHaveBeenCalledWith({ error: 'Refresh token is required' })
+        })
+
+        it('should return 500 when unexpected error occurs', async () => {
+            mockAuthService.logout.mockRejectedValue(new Error('Unexpected'))
+
+            req.cookies = { refreshToken: 'fake-refresh-token' }
+
+            await authController.logout(req as Request, res as Response)
+
+            expect(statusMock).toHaveBeenCalledWith(500)
+            expect(jsonMock).toHaveBeenCalledWith({ error: 'Internal server error' })
+        })
+
+    })
+
+    describe('refresh', () => {
+
+        it('should return 200 and new access token on valid refresh token', async () => {
+            mockAuthService.refresh.mockResolvedValue({
+                accessToken: 'new-fake-access-token'
+            })
+
+            req.cookies = { refreshToken: 'fake-refresh-token' }
+
+            await authController.refresh(req as Request, res as Response)
+
+            expect(mockAuthService.refresh).toHaveBeenCalledWith('fake-refresh-token')
+            expect(statusMock).toHaveBeenCalledWith(200)
+            expect(jsonMock).toHaveBeenCalledWith({ accessToken: 'new-fake-access-token' })
+        })
+
+        it('should return 401 when refresh token is invalid', async () => {
+            mockAuthService.refresh.mockRejectedValue(
+                new UnauthorizedError('Invalid refresh token')
+            )
+
+            req.cookies = { refreshToken: 'invalid-token' }
+
+            await authController.refresh(req as Request, res as Response)
+
+            expect(statusMock).toHaveBeenCalledWith(401)
+            expect(jsonMock).toHaveBeenCalledWith({ error: 'Invalid refresh token' })
+        })
+
+        it('should return 500 when unexpected error occurs', async () => {
+            mockAuthService.refresh.mockRejectedValue(new Error('Unexpected'))
+
+            req.cookies = { refreshToken: 'fake-refresh-token' }
+
+            await authController.refresh(req as Request, res as Response)
+
+            expect(statusMock).toHaveBeenCalledWith(500)
+            expect(jsonMock).toHaveBeenCalledWith({ error: 'Internal server error' })
+        })
+
+    })
+
+    describe('me', () => {
+
+        it('should return 200 and user profile', async () => {
+            mockAuthService.me.mockResolvedValue({
+                id: '123',
+                name: 'Hari',
+                email: 'hari@example.com',
+                role: 'DEVELOPER' as any,
+                createdAt: new Date(),
+                updatedAt: new Date()
+            })
+
+            req = {
+                ...req,
+                user: { userId: '123', role: 'DEVELOPER' }
+            } as any
+
+            await authController.me(req as Request, res as Response)
+
+            expect(mockAuthService.me).toHaveBeenCalledWith('123')
+            expect(statusMock).toHaveBeenCalledWith(200)
+            expect(jsonMock).toHaveBeenCalledWith(
+                expect.objectContaining({ email: 'hari@example.com' })
+            )
+        })
+
+        it('should return 404 when user not found', async () => {
+            mockAuthService.me.mockRejectedValue(
+                new NotFoundError('User not found')
+            )
+
+            req = {
+                ...req,
+                user: { userId: 'nonexistent', role: 'DEVELOPER' }
+            } as any
+
+            await authController.me(req as Request, res as Response)
+
+            expect(statusMock).toHaveBeenCalledWith(404)
+            expect(jsonMock).toHaveBeenCalledWith({ error: 'User not found' })
+        })
+
+        it('should return 500 when unexpected error occurs', async () => {
+            mockAuthService.me.mockRejectedValue(new Error('Unexpected'))
+
+            req = {
+                ...req,
+                user: { userId: '123', role: 'DEVELOPER' }
+            } as any
+
+            await authController.me(req as Request, res as Response)
+
+            expect(statusMock).toHaveBeenCalledWith(500)
+            expect(jsonMock).toHaveBeenCalledWith({ error: 'Internal server error' })
+        })
+
+    })
 
 })
