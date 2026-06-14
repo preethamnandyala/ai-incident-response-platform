@@ -1,48 +1,10 @@
 # Project Status
 
-Date: 28 April 2026
-Current phase: Phase 1 — Auth Service
-Completed phases: Phase 0
-In progress: Auth service setup
-Last commit: docs(daily-log): add day 1 session log
-Decisions made: ADR-001 — use monorepo structure
-Blockers: none
-My biggest confusion right now: none
-
-# Project Status
-
-Date: 29 April 2026
-Current phase: Phase 1a — Auth Service
-Completed phases: Phase 0
-In progress: Auth service — signup complete, login next
-Last commit: docs(daily-log): add day 2 session log
-Decisions made: 
-  ADR-001 — use monorepo structure
-  ADR-002 — auth service phase split
-Blockers: none
-My biggest confusion right now: none
-
-# Project Status
-
-Date: 31 May 2026
-Current phase: Phase 1a — Auth Service
-Completed phases: Phase 0
-In progress: Auth service — service layer complete, validators next
-Last commit: docs(daily-log): add day 3 session log
-Decisions made:
-  ADR-001 — use monorepo structure
-  ADR-002 — auth service phase split
-Blockers: none
-My biggest confusion right now: none
-
-# Project Status
-
-Date: 1 June 2026
-Current phase: Phase 1a — Auth Service
-Completed phases: Phase 0
-In progress: Auth service — validators done, signup controller done,
-              4 more controllers + routes + middleware + app.ts remain
-Last commit: docs(daily-log): add day 4 session log
+Date: 2 June 2026
+Current phase: Phase 1b — Password Management
+Completed phases: Phase 0, Phase 1a
+In progress: Forgot password, reset password, email verification
+Last commit: docs(daily-log): add day 5 session log
 Decisions made:
   ADR-001 — use monorepo structure
   ADR-002 — auth service phase split
