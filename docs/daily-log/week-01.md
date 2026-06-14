@@ -510,3 +510,154 @@ signup controller. Then build routes layer, JWT middleware,
 and finally app.ts and server.ts to wire everything together
 and run the auth service for the first time.
 
+
+---
+
+# Day 5 — 2 June 2026
+
+## Goal
+Complete Phase 1a — build remaining controllers (login, logout,
+refresh, me), middleware layer, routes layer, app.ts and server.ts.
+Run the auth service for the first time.
+
+## Work Completed
+- Built login controller with HTTP-only cookie for refresh token
+- Built logout controller with res.clearCookie
+- Built refresh controller reading token from req.cookies
+- Built me controller reading userId from req.user set by middleware
+- Built validateRequest middleware — checks validation errors,
+  sends 400 if found, calls next() if clean
+- Built authenticateJWT middleware — reads Authorization header,
+  verifies JWT signature and expiry, attaches decoded payload
+  to req.user, sends 401 if token missing, invalid, or expired
+- Built auth routes file mapping all 5 endpoints to controllers
+  with validators and middleware in correct order
+- Built app.ts configuring helmet, cors, cookie-parser,
+  express.json, health check endpoint, routes, global error handler
+- Built server.ts starting the HTTP server on port 3001
+- Installed cookie-parser and @types/cookie-parser
+- 47 tests passing across 4 test suites with 100% coverage
+- Server running successfully — health check responding
+- Validation working correctly in live server test
+- 500 returned correctly when PostgreSQL not available (expected)
+
+## What I Learned
+
+### Why arrow function wrapper is needed in routes
+Passing a class method directly to Express detaches it from its
+instance, making `this` undefined inside the method. An arrow
+function wrapper preserves the context by calling the method
+as authController.signup(req, res) — a proper method call on
+the object, not a standalone function call.
+
+### The three-parameter middleware vs four-parameter error handler
+Regular middleware: (req, res, next) → handles requests
+Error handler: (err, req, res, next) → Express identifies it by
+the four-parameter signature and routes unhandled errors there
+
+### validateRequest — why return after res.json()
+If return is missing, execution continues after sending a 400
+response and calls next(), which proceeds to the controller.
+The controller sends another response. Express throws:
+"Cannot set headers after they are sent to the client"
+Always return immediately after sending any response in middleware.
+
+### authenticateJWT middleware flow
+Reads Authorization header → checks Bearer format → extracts
+token → jwt.verify checks signature AND expiry simultaneously →
+attaches decoded payload to req.user → calls next()
+If any check fails → returns 401 immediately, controller never runs
+
+### (req as any).user?.userId explained
+Express Request type has no user property by default.
+(req as any) bypasses TypeScript's type check temporarily.
+?.userId uses optional chaining — safely returns undefined
+if user is not attached instead of crashing with TypeError.
+Will be properly typed when we extend the Request interface.
+
+### Why app.ts and server.ts are separate files
+app.ts creates and configures Express without starting it.
+server.ts imports app and starts listening on a port.
+Separation allows integration tests to import app directly
+via supertest without starting a real server, preventing
+port conflicts and making tests faster and more reliable.
+
+### What app.ts configures and why each piece matters
+helmet()        → 12 security headers on every response
+cors()          → allows frontend origin to make requests,
+                  credentials:true allows cookies cross-origin
+express.json()  → parses JSON request bodies into req.body
+cookieParser()  → parses Cookie header into req.cookies
+/health         → endpoint for Docker, Kubernetes, monitoring
+/api/auth       → mounts auth router at this prefix
+
+### Cookie parsing
+Without cookie-parser middleware, req.cookies is always undefined.
+Our logout and refresh controllers read req.cookies.refreshToken —
+without this middleware they would always receive undefined and
+the service layer would throw BadRequestError every time.
+
+### Optional chaining ?.
+obj?.property → returns undefined if obj is null or undefined
+                instead of throwing TypeError
+Safe to use when a value might not exist yet
+
+## Problems Faced
+- TypeScript strict mode rejected implicit any types on arrow
+  function parameters in routes file
+- Copy-paste formatting issue with terminal commands causing
+  [200~curl errors
+
+## How I Solved Them
+- Added explicit Request and Response types to every arrow
+  function parameter in auth.routes.ts
+- Typed commands manually instead of copy-pasting
+
+## Security Rules Learned
+- JWT middleware must check BOTH signature validity AND expiry —
+  jwt.verify does both simultaneously and throws if either fails
+- Never expose which JWT check failed — same 401 message for
+  expired, tampered, and missing tokens
+- Health check endpoint needs no authentication — it only
+  proves the service is alive, contains no sensitive data
+- Global error handler catches unexpected errors and returns
+  generic 500 — never expose stack traces or internal details
+
+## Test Coverage
+
+47 tests passing
+
+4 test suites
+
+100% statements, branches, functions, lines
+
+## Commands Used
+```bash
+npm install cookie-parser
+npm install --save-dev @types/cookie-parser
+npm run dev
+curl http://localhost:3001/health
+npm test
+git add .
+git commit -m "feat(auth): add logout, refresh, and me controllers with full test coverage"
+git commit -m "feat(auth): add routes, JWT middleware, and validateRequest middleware"
+git commit -m "feat(auth): add app.ts and server.ts, auth service fully wired"
+git push origin feature/auth-service-setup
+```
+
+## Git Branch
+feature/auth-service-setup
+
+## Commits Made
+- feat(auth): add logout, refresh, and me controllers with full test coverage
+- feat(auth): add routes, JWT middleware, and validateRequest middleware  
+- feat(auth): add app.ts and server.ts, auth service fully wired
+
+## Next Step
+Phase 1b — Password management.
+Build forgot password, reset password, change password,
+email verification, and resend verification email.
+These build on top of the Phase 1a foundation —
+users must exist before passwords can be reset.
+Email sending will be a placeholder until Phase 9
+when the notification service is built.
