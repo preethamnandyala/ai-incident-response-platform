@@ -661,3 +661,144 @@ These build on top of the Phase 1a foundation —
 users must exist before passwords can be reset.
 Email sending will be a placeholder until Phase 9
 when the notification service is built.
+
+---
+
+# Day 6 — 3 June 2026
+
+## Goal
+Begin Phase 1b — build forgotPassword, resetPassword, and
+changePassword services using TDD, with OTP-based verification.
+
+## Work Completed
+- Created ADR-003 documenting decision to separate PasswordService
+  from AuthService following Single Responsibility Principle
+- Created otp.utils.ts with generateOTP, hashOTP, compareOTP
+- Added 5 new repository methods: savePasswordResetOTP,
+  findPasswordResetOTP, markPasswordResetOTPUsed, updatePassword,
+  deleteAllRefreshTokensForUser
+- Built forgotPassword — generates OTP only if user exists,
+  always completes successfully regardless, preventing user
+  enumeration through crash-based status code differences
+- Built resetPassword — verifies email, OTP record, and OTP match,
+  all failures return identical "Invalid or expired OTP" message
+- Built changePassword — verifies old password via bcrypt.compare,
+  all failures return identical "Current password is incorrect"
+- Both resetPassword and changePassword delete all refresh tokens
+  after success, invalidating every active session
+- 56 tests passing across 5 test suites with 100% coverage
+- Opened new feature branch feature/auth-password-management
+
+## What I Learned
+
+### crypto.randomInt vs Math.random
+Math.random() is not cryptographically secure and should never
+be used for anything security-related — OTPs, tokens, secrets.
+crypto.randomInt() uses OS-level entropy and is safe for this.
+
+### SHA-256 vs bcrypt for OTPs
+bcrypt is intentionally slow (good for passwords, checked rarely).
+OTPs are checked frequently and only have 1,000,000 possible
+6-digit combinations, so a fast hash (SHA-256) combined with
+short expiry (15 min) and rate limiting provides adequate security
+without the unacceptable verification delay bcrypt would add.
+
+### Why if(user) check prevents enumeration through crashes
+Without checking if user exists before generating an OTP, calling
+user.id on a null user throws a TypeError, caught as an unexpected
+error, returning 500. Real emails would return 200, fake emails
+would return 500 — leaking exactly which emails are registered
+through status codes alone, even with identical response messages
+attempted. The if check ensures both paths return cleanly with 200.
+
+### ON DELETE CASCADE and foreign keys
+A foreign key (user_id REFERENCES users(id)) enforces referential
+integrity — you cannot create an OTP record for a non-existent
+user. ON DELETE CASCADE means deleting a user automatically deletes
+all their related records (OTPs, refresh tokens) instead of leaving
+orphaned data or blocking the deletion entirely.
+
+### Why password reset and change both invalidate all refresh tokens
+If an attacker had a stolen refresh token before a password reset
+happens, deleting all refresh tokens after the reset ensures that
+stolen token immediately becomes useless, forcing re-authentication
+everywhere. Password changes are often a response to suspected
+compromise, so this is a critical security step, not optional.
+
+### Same error message principle extended beyond login
+The "same error for different failure reasons" pattern from login
+applies everywhere identity or security state is being checked:
+resetPassword (email not found vs OTP expired vs OTP wrong — all
+same message) and changePassword (user not found vs wrong password
+— same message), consistently minimizing information leaked
+through error responses.
+
+### .resolves.not.toThrow() test syntax
+New Jest matcher pattern for proving a Promise resolves successfully
+without throwing, used specifically to test the negative case —
+that calling a function with invalid input does NOT crash, which
+directly verifies enumeration-prevention logic actually works.
+
+### Why some utility functions appear in tests and others don't
+generateOTP and compareOTP are called internally by the real
+service code being tested — the test never calls them directly,
+it just sets up scenarios for the real service to act on naturally.
+hashOTP is called directly in tests because we need to construct
+realistic mock database data (a hash, not a plain OTP) to simulate
+what the database would actually contain.
+
+## Problems Faced
+- Missing hashOTP import in test file caused TS2304 errors
+  in two separate test cases
+
+## How I Solved Them
+- Identified the import was simply missing from the top of the
+  test file and added it alongside existing imports
+
+## Security Rules Learned
+- Never use Math.random() for anything security-sensitive
+- Check for null/undefined before accessing properties to avoid
+  crashes that leak information through different status codes
+- Always invalidate all sessions (refresh tokens) after a password
+  change or reset, regardless of which flow triggered it
+- Same generic error message for every failure reason within
+  a given security-sensitive flow
+
+## Test Coverage
+
+56 tests passing
+
+5 test suites
+
+100% statements, branches, functions, lines
+
+
+## Commands Used
+```bash
+npm test
+git checkout -b feature/auth-password-management
+git add .
+git commit -m "docs(decisions): add ADR-003 separate password service"
+git commit -m "feat(auth): add PasswordService with forgotPassword, OTP utilities"
+git commit -m "feat(auth): add resetPassword with OTP verification and refresh token invalidation"
+git commit -m "feat(auth): add changePassword with old password verification"
+git push origin feature/auth-password-management
+```
+
+## Git Branch
+feature/auth-password-management
+
+## Commits Made
+- docs(decisions): add ADR-003 separate password service
+- feat(auth): add PasswordService with forgotPassword, OTP utilities
+- feat(auth): add resetPassword with OTP verification and refresh token invalidation
+- feat(auth): add changePassword with old password verification
+
+## Next Step
+Phase 1b continues — build controllers for forgotPassword,
+resetPassword, changePassword. Build validators for OTP format
+(6 digits) and new password strength rules (reusing existing
+password regex). Build routes mapping the three new endpoints.
+Then move to email verification — sends OTP on signup, verifies
+with code, separate from password reset OTP flow.
+
