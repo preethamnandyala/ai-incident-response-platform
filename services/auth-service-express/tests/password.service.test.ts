@@ -1,6 +1,7 @@
 import { PasswordService } from '../src/services/password.service'
 import { UserRepository } from '../src/repositories/user.repository'
 import { hashOTP } from '../src/utils/otp.utils'
+import bcrypt from 'bcryptjs'
 
 jest.mock('../src/repositories/user.repository')
 
@@ -131,5 +132,60 @@ describe('PasswordService', () => {
       })
 
   })
+
+    describe('changePassword', () => {
+
+        it('should update password when old password is correct', async () => {
+            const oldPasswordHash = await bcrypt.hash('OldSecurePass1!', 10)
+
+            mockUserRepository.prototype.findById.mockResolvedValue({
+                id: '123',
+                name: 'Hari',
+                email: 'hari@example.com',
+                passwordHash: oldPasswordHash,
+                role: 'DEVELOPER',
+                createdAt: new Date(),
+                updatedAt: new Date()
+            })
+            mockUserRepository.prototype.updatePassword.mockResolvedValue(undefined)
+            mockUserRepository.prototype.deleteAllRefreshTokensForUser.mockResolvedValue(undefined)
+
+            await passwordService.changePassword('123', 'OldSecurePass1!', 'NewSecurePass1!')
+
+            expect(mockUserRepository.prototype.updatePassword).toHaveBeenCalledWith(
+                '123',
+                expect.any(String)
+            )
+            expect(mockUserRepository.prototype.deleteAllRefreshTokensForUser)
+                .toHaveBeenCalledWith('123')
+        })
+
+        it('should throw when user is not found', async () => {
+            mockUserRepository.prototype.findById.mockResolvedValue(null)
+
+            await expect(
+                passwordService.changePassword('nonexistent', 'OldSecurePass1!', 'NewSecurePass1!')
+            ).rejects.toThrow('Current password is incorrect')
+        })
+
+        it('should throw when old password is incorrect', async () => {
+            const oldPasswordHash = await bcrypt.hash('OldSecurePass1!', 10)
+
+            mockUserRepository.prototype.findById.mockResolvedValue({
+                id: '123',
+                name: 'Hari',
+                email: 'hari@example.com',
+                passwordHash: oldPasswordHash,
+                role: 'DEVELOPER',
+                createdAt: new Date(),
+                updatedAt: new Date()
+            })
+
+            await expect(
+                passwordService.changePassword('123', 'WrongOldPassword1!', 'NewSecurePass1!')
+            ).rejects.toThrow('Current password is incorrect')
+        })
+
+    })
 
 })
