@@ -1,5 +1,6 @@
 import { PasswordService } from '../src/services/password.service'
 import { UserRepository } from '../src/repositories/user.repository'
+import { hashOTP } from '../src/utils/otp.utils'
 
 jest.mock('../src/repositories/user.repository')
 
@@ -46,5 +47,89 @@ describe('PasswordService', () => {
         })
 
     })
+
+  describe('resetPassword', () => {
+
+      it('should reset password when email and OTP are valid', async () => {
+          const otp = '123456'
+          const otpHash = hashOTP(otp)
+
+          mockUserRepository.prototype.findByEmail.mockResolvedValue({
+              id: '123',
+              name: 'Hari',
+              email: 'hari@example.com',
+              passwordHash: '$2b$10$oldhash',
+              role: 'DEVELOPER',
+              createdAt: new Date(),
+              updatedAt: new Date()
+          })
+          mockUserRepository.prototype.findPasswordResetOTP.mockResolvedValue({
+              otpHash,
+              expiresAt: new Date(Date.now() + 10 * 60 * 1000),
+              usedAt: null
+          })
+          mockUserRepository.prototype.updatePassword.mockResolvedValue(undefined)
+          mockUserRepository.prototype.markPasswordResetOTPUsed.mockResolvedValue(undefined)
+          mockUserRepository.prototype.deleteAllRefreshTokensForUser.mockResolvedValue(undefined)
+
+          await passwordService.resetPassword('hari@example.com', otp, 'NewSecurePass1!')
+
+          expect(mockUserRepository.prototype.updatePassword).toHaveBeenCalledWith(
+              '123',
+              expect.any(String)
+          )
+          expect(mockUserRepository.prototype.markPasswordResetOTPUsed).toHaveBeenCalledWith('123')
+          expect(mockUserRepository.prototype.deleteAllRefreshTokensForUser).toHaveBeenCalledWith('123')
+      })
+
+      it('should throw when email does not exist', async () => {
+          mockUserRepository.prototype.findByEmail.mockResolvedValue(null)
+
+          await expect(
+              passwordService.resetPassword('fake@example.com', '123456', 'NewSecurePass1!')
+          ).rejects.toThrow('Invalid or expired OTP')
+      })
+
+      it('should throw when OTP record does not exist or expired', async () => {
+          mockUserRepository.prototype.findByEmail.mockResolvedValue({
+              id: '123',
+              name: 'Hari',
+              email: 'hari@example.com',
+              passwordHash: '$2b$10$oldhash',
+              role: 'DEVELOPER',
+              createdAt: new Date(),
+              updatedAt: new Date()
+          })
+          mockUserRepository.prototype.findPasswordResetOTP.mockResolvedValue(null)
+
+          await expect(
+              passwordService.resetPassword('hari@example.com', '123456', 'NewSecurePass1!')
+          ).rejects.toThrow('Invalid or expired OTP')
+      })
+
+      it('should throw when OTP does not match', async () => {
+          const correctOtpHash = hashOTP('999999')
+
+          mockUserRepository.prototype.findByEmail.mockResolvedValue({
+              id: '123',
+              name: 'Hari',
+              email: 'hari@example.com',
+              passwordHash: '$2b$10$oldhash',
+              role: 'DEVELOPER',
+              createdAt: new Date(),
+              updatedAt: new Date()
+          })
+          mockUserRepository.prototype.findPasswordResetOTP.mockResolvedValue({
+              otpHash: correctOtpHash,
+              expiresAt: new Date(Date.now() + 10 * 60 * 1000),
+              usedAt: null
+          })
+
+          await expect(
+              passwordService.resetPassword('hari@example.com', '123456', 'NewSecurePass1!')
+          ).rejects.toThrow('Invalid or expired OTP')
+      })
+
+  })
 
 })
