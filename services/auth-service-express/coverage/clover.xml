@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<coverage generated="1781892648376" clover="3.2.0">
-  <project timestamp="1781892648376" name="All files">
-    <metrics statements="185" coveredstatements="185" conditionals="48" coveredconditionals="48" methods="31" coveredmethods="31" elements="264" coveredelements="264" complexity="0" loc="185" ncloc="185" packages="5" files="9" classes="9"/>
+<coverage generated="1781894929789" clover="3.2.0">
+  <project timestamp="1781894929789" name="All files">
+    <metrics statements="196" coveredstatements="196" conditionals="52" coveredconditionals="52" methods="33" coveredmethods="33" elements="281" coveredelements="281" complexity="0" loc="196" ncloc="196" packages="5" files="10" classes="10"/>
     <package name="controllers">
       <metrics statements="65" coveredstatements="65" conditionals="16" coveredconditionals="16" methods="10" coveredmethods="10"/>
       <file name="auth.controller.ts" path="C:\Users\preet\ai-incident-response-platform\services\auth-service-express\src\controllers\auth.controller.ts">
@@ -210,14 +210,14 @@
       </file>
       <file name="password.utils.ts" path="C:\Users\preet\ai-incident-response-platform\services\auth-service-express\src\utils\password.utils.ts">
         <metrics statements="4" coveredstatements="4" conditionals="0" coveredconditionals="0" methods="1" coveredmethods="1"/>
-        <line num="1" count="1" type="stmt"/>
-        <line num="3" count="1" type="stmt"/>
-        <line num="5" count="1" type="stmt"/>
-        <line num="6" count="8" type="stmt"/>
+        <line num="1" count="2" type="stmt"/>
+        <line num="3" count="2" type="stmt"/>
+        <line num="5" count="2" type="stmt"/>
+        <line num="6" count="15" type="stmt"/>
       </file>
     </package>
     <package name="validators">
-      <metrics statements="7" coveredstatements="7" conditionals="2" coveredconditionals="2" methods="1" coveredmethods="1"/>
+      <metrics statements="18" coveredstatements="18" conditionals="6" coveredconditionals="6" methods="3" coveredmethods="3"/>
       <file name="auth.validator.ts" path="C:\Users\preet\ai-incident-response-platform\services\auth-service-express\src\validators\auth.validator.ts">
         <metrics statements="7" coveredstatements="7" conditionals="2" coveredconditionals="2" methods="1" coveredmethods="1"/>
         <line num="1" count="1" type="stmt"/>
@@ -227,6 +227,20 @@
         <line num="35" count="1" type="stmt"/>
         <line num="37" count="7" type="stmt"/>
         <line num="42" count="1" type="stmt"/>
+      </file>
+      <file name="password.validator.ts" path="C:\Users\preet\ai-incident-response-platform\services\auth-service-express\src\validators\password.validator.ts">
+        <metrics statements="11" coveredstatements="11" conditionals="4" coveredconditionals="4" methods="2" coveredmethods="2"/>
+        <line num="1" count="1" type="stmt"/>
+        <line num="2" count="1" type="stmt"/>
+        <line num="4" count="1" type="stmt"/>
+        <line num="14" count="1" type="stmt"/>
+        <line num="43" count="4" type="cond" truecount="2" falsecount="0"/>
+        <line num="44" count="1" type="stmt"/>
+        <line num="46" count="3" type="stmt"/>
+        <line num="51" count="1" type="stmt"/>
+        <line num="68" count="3" type="cond" truecount="2" falsecount="0"/>
+        <line num="69" count="1" type="stmt"/>
+        <line num="71" count="2" type="stmt"/>
       </file>
     </package>
   </project>
