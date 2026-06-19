@@ -1,9 +1,9 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<coverage generated="1781823211945" clover="3.2.0">
-  <project timestamp="1781823211945" name="All files">
-    <metrics statements="160" coveredstatements="160" conditionals="42" coveredconditionals="42" methods="27" coveredmethods="27" elements="229" coveredelements="229" complexity="0" loc="160" ncloc="160" packages="5" files="8" classes="8"/>
+<coverage generated="1781892648376" clover="3.2.0">
+  <project timestamp="1781892648376" name="All files">
+    <metrics statements="185" coveredstatements="185" conditionals="48" coveredconditionals="48" methods="31" coveredmethods="31" elements="264" coveredelements="264" complexity="0" loc="185" ncloc="185" packages="5" files="9" classes="9"/>
     <package name="controllers">
-      <metrics statements="40" coveredstatements="40" conditionals="10" coveredconditionals="10" methods="6" coveredmethods="6"/>
+      <metrics statements="65" coveredstatements="65" conditionals="16" coveredconditionals="16" methods="10" coveredmethods="10"/>
       <file name="auth.controller.ts" path="C:\Users\preet\ai-incident-response-platform\services\auth-service-express\src\controllers\auth.controller.ts">
         <metrics statements="40" coveredstatements="40" conditionals="10" coveredconditionals="10" methods="6" coveredmethods="6"/>
         <line num="3" count="1" type="stmt"/>
@@ -46,6 +46,34 @@
         <line num="101" count="2" type="cond" truecount="2" falsecount="0"/>
         <line num="102" count="1" type="stmt"/>
         <line num="104" count="1" type="stmt"/>
+      </file>
+      <file name="password.controller.ts" path="C:\Users\preet\ai-incident-response-platform\services\auth-service-express\src\controllers\password.controller.ts">
+        <metrics statements="25" coveredstatements="25" conditionals="6" coveredconditionals="6" methods="4" coveredmethods="4"/>
+        <line num="3" count="1" type="stmt"/>
+        <line num="5" count="1" type="stmt"/>
+        <line num="10" count="9" type="stmt"/>
+        <line num="14" count="3" type="stmt"/>
+        <line num="16" count="3" type="stmt"/>
+        <line num="17" count="3" type="stmt"/>
+        <line num="19" count="1" type="stmt"/>
+        <line num="23" count="2" type="cond" truecount="2" falsecount="0"/>
+        <line num="24" count="1" type="stmt"/>
+        <line num="26" count="1" type="stmt"/>
+        <line num="32" count="3" type="stmt"/>
+        <line num="34" count="3" type="stmt"/>
+        <line num="35" count="3" type="stmt"/>
+        <line num="37" count="1" type="stmt"/>
+        <line num="41" count="2" type="cond" truecount="2" falsecount="0"/>
+        <line num="42" count="1" type="stmt"/>
+        <line num="44" count="1" type="stmt"/>
+        <line num="50" count="3" type="stmt"/>
+        <line num="51" count="3" type="stmt"/>
+        <line num="53" count="3" type="stmt"/>
+        <line num="54" count="3" type="stmt"/>
+        <line num="56" count="1" type="stmt"/>
+        <line num="60" count="2" type="cond" truecount="2" falsecount="0"/>
+        <line num="61" count="1" type="stmt"/>
+        <line num="63" count="1" type="stmt"/>
       </file>
     </package>
     <package name="middlewares">
@@ -116,10 +144,10 @@
       </file>
       <file name="password.service.ts" path="C:\Users\preet\ai-incident-response-platform\services\auth-service-express\src\services\password.service.ts">
         <metrics statements="33" coveredstatements="33" conditionals="12" coveredconditionals="12" methods="4" coveredmethods="4"/>
-        <line num="1" count="1" type="stmt"/>
-        <line num="3" count="1" type="stmt"/>
-        <line num="4" count="1" type="stmt"/>
-        <line num="7" count="1" type="stmt"/>
+        <line num="1" count="2" type="stmt"/>
+        <line num="3" count="2" type="stmt"/>
+        <line num="4" count="2" type="stmt"/>
+        <line num="7" count="2" type="stmt"/>
         <line num="12" count="9" type="stmt"/>
         <line num="16" count="2" type="stmt"/>
         <line num="18" count="2" type="cond" truecount="2" falsecount="0"/>
@@ -155,28 +183,28 @@
       <metrics statements="25" coveredstatements="25" conditionals="0" coveredconditionals="0" methods="9" coveredmethods="9"/>
       <file name="errors.ts" path="C:\Users\preet\ai-incident-response-platform\services\auth-service-express\src\utils\errors.ts">
         <metrics statements="13" coveredstatements="13" conditionals="0" coveredconditionals="0" methods="5" coveredmethods="5"/>
-        <line num="1" count="4" type="stmt"/>
-        <line num="5" count="18" type="stmt"/>
-        <line num="6" count="18" type="stmt"/>
-        <line num="7" count="18" type="stmt"/>
-        <line num="8" count="18" type="stmt"/>
-        <line num="12" count="4" type="stmt"/>
+        <line num="1" count="6" type="stmt"/>
+        <line num="5" count="21" type="stmt"/>
+        <line num="6" count="21" type="stmt"/>
+        <line num="7" count="21" type="stmt"/>
+        <line num="8" count="21" type="stmt"/>
+        <line num="12" count="6" type="stmt"/>
         <line num="14" count="2" type="stmt"/>
-        <line num="18" count="4" type="stmt"/>
-        <line num="20" count="12" type="stmt"/>
-        <line num="24" count="4" type="stmt"/>
+        <line num="18" count="6" type="stmt"/>
+        <line num="20" count="15" type="stmt"/>
+        <line num="24" count="6" type="stmt"/>
         <line num="26" count="2" type="stmt"/>
-        <line num="30" count="4" type="stmt"/>
+        <line num="30" count="6" type="stmt"/>
         <line num="32" count="2" type="stmt"/>
       </file>
       <file name="otp.utils.ts" path="C:\Users\preet\ai-incident-response-platform\services\auth-service-express\src\utils\otp.utils.ts">
         <metrics statements="8" coveredstatements="8" conditionals="0" coveredconditionals="0" methods="3" coveredmethods="3"/>
-        <line num="1" count="1" type="stmt"/>
-        <line num="3" count="1" type="stmt"/>
+        <line num="1" count="2" type="stmt"/>
+        <line num="3" count="2" type="stmt"/>
         <line num="4" count="1" type="stmt"/>
-        <line num="7" count="1" type="stmt"/>
+        <line num="7" count="2" type="stmt"/>
         <line num="8" count="5" type="stmt"/>
-        <line num="11" count="1" type="stmt"/>
+        <line num="11" count="2" type="stmt"/>
         <line num="12" count="2" type="stmt"/>
         <line num="13" count="2" type="stmt"/>
       </file>
