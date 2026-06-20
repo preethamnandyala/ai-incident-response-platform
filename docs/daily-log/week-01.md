@@ -802,3 +802,196 @@ password regex). Build routes mapping the three new endpoints.
 Then move to email verification — sends OTP on signup, verifies
 with code, separate from password reset OTP flow.
 
+---
+
+# Day 7 — 4 June 2026
+
+## Goal
+Complete Phase 1b — build controllers, validators, and routes for
+password management. Build email verification flow (separate from
+password reset). Wire verification into signup.
+
+## Work Completed
+- Built PasswordController — forgotPassword, resetPassword,
+  changePassword with full test coverage, caught and fixed two
+  missing branch coverage gaps independently
+- Built password validators — validateForgotPassword,
+  validateResetPassword, validateChangePassword, reusing
+  PASSWORD_REGEX and hasRepeatingCharacters from Session 4
+- Built password.routes.ts, wired into app.ts under /api/auth
+- Created ADR-003 documenting why PasswordService is separate
+  from AuthService (Single Responsibility Principle)
+- Designed email verification flow — traced a concrete bug
+  scenario showing why email_verification_otps needs to be a
+  SEPARATE table from password_reset_otps (shared table would
+  let a password reset request silently delete a pending email
+  verification OTP)
+- Created ADR-004 documenting email verification design decisions:
+  separate OTP table, signup() stays unchanged, controller
+  sequences signup() + sendVerificationOTP() separately, users
+  CAN log in before verifying email
+- Built EmailVerificationService — sendVerificationOTP, verifyEmail
+- Built EmailVerificationController and validateVerifyEmail validator
+- Built email-verification.routes.ts
+- Wired sendVerificationOTP into AuthController.signup() —
+  identified and documented a real SRP tension this creates,
+  added a section to ADR-004 explaining this will be properly
+  resolved via event-driven architecture (RabbitMQ) in Phase 6
+- Found and fixed a real production gap — unexpected errors were
+  caught and converted to 500 responses but never logged anywhere,
+  meaning real bugs would happen with zero developer visibility
+- Refactored repeated 6-line error handling block (duplicated 10
+  times across 3 controllers) into a single handleControllerError
+  utility function — applied DRY principle, fixed logging in one
+  place instead of ten
+- Verified the entire signup → email verification chain against
+  a real running server — confirmed ECONNREFUSED error from
+  PostgreSQL now logs full diagnostic detail server-side while
+  client still receives only the safe generic message
+- 90 tests passing, 100% coverage across all metrics
+
+## What I Learned
+
+### DRY principle (Don't Repeat Yourself)
+Noticed the same 6-line catch block existed identically 10 times
+across 3 controller files. Repeated code should be extracted into
+one shared function — fixing a bug in one copy means fixing it
+everywhere it was duplicated, which is error-prone and easy to
+miss. handleControllerError() consolidates this into one place.
+
+### Class-typed mocks vs instance-typed mocks
+Two different jest mocking patterns exist for a reason, not as
+arbitrary style:
+- ClassName.prototype.method.mockResolvedValue() — used when
+  the test creates FRESH instances repeatedly (e.g. new
+  UserRepository() inside beforeEach) — configuring via
+  .prototype ensures every future instance inherits the
+  configured behavior
+- jest.Mocked<ClassName> on a single instance — used when the
+  test reuses ONE mock instance across all tests, only the thing
+  being tested gets recreated fresh each time
+
+### Enumeration protection only applies to attacker-controlled input
+Initially over-applied the "same error message" principle to
+sendVerificationOTP, which doesn't need it. The distinction:
+forgotPassword(email) takes email directly from req.body —
+attacker-controlled, public input, enumeration risk is real.
+sendVerificationOTP(userId) is only ever called internally by
+our own controller right after signup succeeds — never exposed
+to arbitrary client input, so there's no guessing surface for
+an attacker to exploit. resendVerificationOTP (if built to take
+email from a public endpoint) WOULD need this protection.
+
+### SRP tension is sometimes an acceptable, documented tradeoff
+AuthController.signup() now calls both authService.signup() and
+emailVerificationService.sendVerificationOTP() — technically two
+reasons for the controller to change. Rather than over-engineering
+a premature fix, documented this as a known, accepted tradeoff in
+ADR-004, with a concrete plan to resolve it properly via the
+Observer pattern (RabbitMQ event "user.created") in Phase 6.
+Real engineering often means choosing the pragmatic option now
+and documenting the proper fix for later, not solving everything
+perfectly on the first pass.
+
+### Errors caught in try/catch never reach Express's global error handler
+The global error handler in app.ts only fires for errors passed
+via next(err) or uncaught in middleware. A controller's own
+try/catch that manually sends a response (our pattern, used
+everywhere) bypasses the global handler entirely — meaning errors
+caught there are completely invisible unless explicitly logged.
+This was a real, previously undetected gap across every controller
+in the codebase, found by manually testing the live server.
+
+### console.error placement matters for security AND observability
+Logging the real error server-side while still sending the generic
+"Internal server error" to the client achieves both goals
+simultaneously — security (no internal details leaked to attacker)
+and observability (developers can actually debug production issues).
+These are not in conflict if logging happens server-side only.
+
+### Foreign key constraints can mask bugs that need their own
+defensive handling
+Discussed whether to skip the findById check in
+sendVerificationOTP and rely on the database's foreign key
+constraint to reject invalid userIds. Decided against this —
+explicit checking produces a clean NotFoundError instead of a
+raw database constraint violation bubbling up as an opaque 500,
+and we need user.email from the lookup anyway for the eventual
+real email-sending step in Phase 9.
+
+## Problems Faced
+- Missing branch coverage caught twice independently in
+  PasswordController tests (AppError branch for forgotPassword,
+  500 branch for resetPassword and changePassword)
+- TypeScript error "Type 'Number' has no call signatures" when
+  writing handleControllerError — caused by forgetting to import
+  Response from express in errors.ts
+- AuthController constructor signature change (adding
+  EmailVerificationService) broke an existing test, requiring
+  the test file to be updated with a second mocked dependency
+- Discovered console.error was never being called anywhere,
+  meaning unexpected errors were completely silent in the
+  running server despite correct test coverage
+
+## How I Solved Them
+- Traced missing coverage lines back to specific untested
+  scenarios in each describe block, added the missing test cases
+- Identified the missing Response import myself before asking,
+  confirming the type conflict diagnosis
+- Updated auth.controller.test.ts to mock and inject
+  EmailVerificationService alongside the existing AuthService mock
+- Manually tested the live server with curl, observed silent
+  failure, traced it to try/catch blocks bypassing the global
+  error handler, fixed by extracting handleControllerError with
+  console.error built in
+
+## Security Rules Learned
+- Enumeration protection (same generic error message) only
+  applies to endpoints taking attacker-controlled input directly
+  from a public request body — not to internally-triggered calls
+  using server-generated values
+- Always log unexpected errors server-side even when returning
+  a generic message to the client — security and observability
+  are not mutually exclusive
+- Foreign key constraints are a backstop, not a substitute for
+  explicit validation that produces clean, intentional error
+  responses
+
+## Test Coverage
+
+90 tests passing
+
+9 test suites
+
+100% statements, branches, functions, lines
+
+## Commands Used
+```bash
+npm test
+npm run dev
+curl -X POST http://localhost:3001/api/auth/signup ...
+git add .
+git commit -m "feat(auth): add PasswordController with full branch coverage"
+git commit -m "feat(auth): add password validators with full branch coverage"
+git commit -m "feat(auth): add password routes, wire into app.ts"
+git commit -m "docs(decisions): add ADR-003 separate password service"
+git commit -m "docs(decisions): add ADR-004 email verification design"
+git commit -m "feat(auth): add EmailVerificationService with full test coverage"
+git commit -m "feat(auth): add EmailVerificationController with full test coverage"
+git commit -m "feat(auth): add validateVerifyEmail validator"
+git commit -m "feat(auth): wire EmailVerificationService into AuthController signup flow"
+git commit -m "docs(decisions): update ADR-004 with SRP tradeoff and Phase 6 resolution plan"
+git commit -m "refactor(auth): extract handleControllerError utility, add error logging"
+git push origin feature/auth-password-management
+```
+
+## Git Branch
+feature/auth-password-management
+
+## Next Step
+Phase 1c — OAuth2 (Google login). Will use the existing JWT
+issuing system from Phase 1a — OAuth only replaces HOW identity
+is verified, not what happens after. Need to understand OAuth2
+authorization code flow, handling users who sign up via Google
+vs email, and linking/duplicate-email edge cases before writing
+any code.
