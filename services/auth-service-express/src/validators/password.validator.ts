@@ -72,3 +72,17 @@ export const validateChangePassword = [
         })
 
 ]
+
+export const validateVerifyEmail = [
+
+    body('otp')
+        .notEmpty()
+        .withMessage('OTP is required')
+        .bail()
+        .isLength({ min: 6, max: 6 })
+        .withMessage('OTP must be exactly 6 digits')
+        .bail()
+        .isNumeric()
+        .withMessage('OTP must contain only numbers')
+
+]

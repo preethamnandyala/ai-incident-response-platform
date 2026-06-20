@@ -1,4 +1,4 @@
-import { validateForgotPassword, validateResetPassword, validateChangePassword } from '../src/validators/password.validator'
+import { validateForgotPassword, validateResetPassword, validateChangePassword, validateVerifyEmail } from '../src/validators/password.validator'
 import { validationResult } from 'express-validator'
 import { Request } from 'express'
 
@@ -134,6 +134,33 @@ describe('Password Validators', () => {
             expect(result.array()[0].msg).toBe(
                 'Password cannot have more than 2 consecutive repeating characters'
             )
+        })
+
+    })
+
+    describe('validateVerifyEmail', () => {
+
+        it('should pass with valid 6-digit OTP', async () => {
+            const result = await runValidation(validateVerifyEmail, {
+                otp: '123456'
+            })
+            expect(result.isEmpty()).toBe(true)
+        })
+
+        it('should fail when OTP contains letters', async () => {
+            const result = await runValidation(validateVerifyEmail, {
+                otp: '12345a'
+            })
+            expect(result.isEmpty()).toBe(false)
+            expect(result.array()[0].msg).toBe('OTP must contain only numbers')
+        })
+
+        it('should fail when OTP is empty', async () => {
+            const result = await runValidation(validateVerifyEmail, {
+                otp: ''
+            })
+            expect(result.isEmpty()).toBe(false)
+            expect(result.array()[0].msg).toBe('OTP is required')
         })
 
     })

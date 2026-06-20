@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<coverage generated="1781985826792" clover="3.2.0">
-  <project timestamp="1781985826792" name="All files">
-    <metrics statements="233" coveredstatements="233" conditionals="62" coveredconditionals="62" methods="39" coveredmethods="39" elements="334" coveredelements="334" complexity="0" loc="233" ncloc="233" packages="5" files="12" classes="12"/>
+<coverage generated="1781986663703" clover="3.2.0">
+  <project timestamp="1781986663703" name="All files">
+    <metrics statements="234" coveredstatements="234" conditionals="62" coveredconditionals="62" methods="39" coveredmethods="39" elements="335" coveredelements="335" complexity="0" loc="234" ncloc="234" packages="5" files="12" classes="12"/>
     <package name="controllers">
       <metrics statements="83" coveredstatements="83" conditionals="20" coveredconditionals="20" methods="13" coveredmethods="13"/>
       <file name="auth.controller.ts" path="C:\Users\preet\ai-incident-response-platform\services\auth-service-express\src\controllers\auth.controller.ts">
@@ -260,7 +260,7 @@
       </file>
     </package>
     <package name="validators">
-      <metrics statements="18" coveredstatements="18" conditionals="6" coveredconditionals="6" methods="3" coveredmethods="3"/>
+      <metrics statements="19" coveredstatements="19" conditionals="6" coveredconditionals="6" methods="3" coveredmethods="3"/>
       <file name="auth.validator.ts" path="C:\Users\preet\ai-incident-response-platform\services\auth-service-express\src\validators\auth.validator.ts">
         <metrics statements="7" coveredstatements="7" conditionals="2" coveredconditionals="2" methods="1" coveredmethods="1"/>
         <line num="1" count="1" type="stmt"/>
@@ -272,7 +272,7 @@
         <line num="42" count="1" type="stmt"/>
       </file>
       <file name="password.validator.ts" path="C:\Users\preet\ai-incident-response-platform\services\auth-service-express\src\validators\password.validator.ts">
-        <metrics statements="11" coveredstatements="11" conditionals="4" coveredconditionals="4" methods="2" coveredmethods="2"/>
+        <metrics statements="12" coveredstatements="12" conditionals="4" coveredconditionals="4" methods="2" coveredmethods="2"/>
         <line num="1" count="1" type="stmt"/>
         <line num="2" count="1" type="stmt"/>
         <line num="4" count="1" type="stmt"/>
@@ -284,6 +284,7 @@
         <line num="68" count="3" type="cond" truecount="2" falsecount="0"/>
         <line num="69" count="1" type="stmt"/>
         <line num="71" count="2" type="stmt"/>
+        <line num="76" count="1" type="stmt"/>
       </file>
     </package>
   </project>
