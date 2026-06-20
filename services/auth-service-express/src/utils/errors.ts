@@ -1,3 +1,5 @@
+import { Response } from 'express'
+
 export class AppError extends Error {
     statusCode: number
 
@@ -30,5 +32,14 @@ export class NotFoundError extends AppError {
 export class BadRequestError extends AppError {
     constructor(message: string) {
         super(message, 400)
+    }
+}
+
+export function handleControllerError(error: unknown, res: Response): void {
+    if (error instanceof AppError) {
+        res.status(error.statusCode).json({ error: error.message })
+    } else {
+        console.error(error)
+        res.status(500).json({ error: 'Internal server error' })
     }
 }

@@ -1,6 +1,6 @@
 import { Request, Response } from 'express'
 import { EmailVerificationService } from '../services/email-verification.service'
-import { AppError } from '../utils/errors'
+import { handleControllerError } from '../utils/errors'
 
 export class EmailVerificationController {
 
@@ -19,11 +19,7 @@ export class EmailVerificationController {
 
             res.status(200).json({ message: 'Email verified successfully' })
         } catch (error) {
-            if (error instanceof AppError) {
-                res.status(error.statusCode).json({ error: error.message })
-            } else {
-                res.status(500).json({ error: 'Internal server error' })
-            }
+            handleControllerError(error, res)
         }
     }
 
@@ -35,11 +31,7 @@ export class EmailVerificationController {
 
             res.status(200).json({ message: 'Verification OTP sent' })
         } catch (error) {
-            if (error instanceof AppError) {
-                res.status(error.statusCode).json({ error: error.message })
-            } else {
-                res.status(500).json({ error: 'Internal server error' })
-            }
+            handleControllerError(error, res)
         }
     }
 

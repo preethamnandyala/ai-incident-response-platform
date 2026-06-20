@@ -1,6 +1,6 @@
 import { Request, Response } from 'express'
 import { PasswordService } from '../services/password.service'
-import { AppError } from '../utils/errors'
+import { handleControllerError } from '../utils/errors'
 
 export class PasswordController {
 
@@ -20,11 +20,7 @@ export class PasswordController {
                 message: 'If an account exists with this email, an OTP has been sent'
             })
         } catch (error) {
-            if (error instanceof AppError) {
-                res.status(error.statusCode).json({ error: error.message })
-            } else {
-                res.status(500).json({ error: 'Internal server error' })
-            }
+            handleControllerError(error, res)
         }
     }
 
@@ -38,11 +34,7 @@ export class PasswordController {
                 message: 'Password reset successfully'
             })
         } catch (error) {
-            if (error instanceof AppError) {
-                res.status(error.statusCode).json({ error: error.message })
-            } else {
-                res.status(500).json({ error: 'Internal server error' })
-            }
+            handleControllerError(error, res)
         }
     }
 
@@ -57,11 +49,7 @@ export class PasswordController {
                 message: 'Password changed successfully'
             })
         } catch (error) {
-            if (error instanceof AppError) {
-                res.status(error.statusCode).json({ error: error.message })
-            } else {
-                res.status(500).json({ error: 'Internal server error' })
-            }
+            handleControllerError(error, res)
         }
     }
 
