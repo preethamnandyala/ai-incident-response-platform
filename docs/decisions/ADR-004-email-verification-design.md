@@ -59,3 +59,28 @@ Shared OTP table for both purposes — rejected due to the concrete
 race/overwrite bug it introduces. signup() directly calling email
 verification internally — rejected as it couples two services that
 should remain independent, same reasoning as ADR-003.
+
+## Known SRP Tension and Future Resolution
+
+AuthController.signup() currently calls both authService.signup()
+and emailVerificationService.sendVerificationOTP() sequentially.
+This gives the controller two reasons to change (auth logic
+changes, OR email verification flow changes), a minor tension
+with Single Responsibility Principle.
+
+This is accepted as a pragmatic intermediate pattern. The proper
+fix is event-driven architecture (Observer pattern): AuthService
+would publish a "user.created" event after signup;
+EmailVerificationService would subscribe to that event and react
+independently, removing the direct dependency from AuthController
+entirely.
+
+This will be implemented in Phase 6 when RabbitMQ is introduced.
+At that point, AuthController.signup() will be simplified back to
+calling only authService.signup() — the event publish/subscribe
+mechanism will handle triggering verification OTP generation
+without the controller needing to know EmailVerificationService
+exists.
+
+Until Phase 6, the direct coupling in AuthController is the
+deliberate, documented tradeoff.
