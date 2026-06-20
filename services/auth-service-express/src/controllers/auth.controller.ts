@@ -1,13 +1,16 @@
 import { Request, Response } from 'express'
 import { AuthService } from '../services/auth.service'
 import { AppError } from '../utils/errors'
+import { EmailVerificationService } from '../services/email-verification.service'
 
 export class AuthController {
 
     private authService: AuthService
+    private emailVerificationService: EmailVerificationService
 
-    constructor(authService: AuthService) {
+    constructor(authService: AuthService, emailVerificationService: EmailVerificationService) {
         this.authService = authService
+        this.emailVerificationService = emailVerificationService
     }
 
     async signup(req: Request, res: Response): Promise<void> {
@@ -15,6 +18,9 @@ export class AuthController {
 
         try {
             const result = await this.authService.signup(name, email, password)
+
+             await this.emailVerificationService.sendVerificationOTP(result.id)
+
             res.status(201).json(result)
         } catch (error) {
             if (error instanceof AppError) {

@@ -2,10 +2,13 @@ import { Request, Response } from 'express'
 import { AuthController } from '../src/controllers/auth.controller'
 import { AuthService } from '../src/services/auth.service'
 import { ConflictError, UnauthorizedError, BadRequestError, NotFoundError } from '../src/utils/errors'
+import { EmailVerificationService } from '../src/services/email-verification.service'
 
 jest.mock('../src/services/auth.service')
+jest.mock('../src/services/email-verification.service')
 
 const mockAuthService = new AuthService(null as any) as jest.Mocked<AuthService>
+const mockEmailVerificationService = new EmailVerificationService(null as any) as jest.Mocked<EmailVerificationService>
 
 describe('AuthController', () => {
 
@@ -18,7 +21,7 @@ describe('AuthController', () => {
 
     beforeEach(() => {
         jest.clearAllMocks()
-        authController = new AuthController(mockAuthService)
+        authController = new AuthController(mockAuthService, mockEmailVerificationService)
 
         jsonMock = jest.fn()
         statusMock = jest.fn().mockReturnValue({ json: jsonMock })
@@ -50,9 +53,10 @@ describe('AuthController', () => {
                 createdAt: new Date(),
                 updatedAt: new Date()
             })
-
+            mockEmailVerificationService.sendVerificationOTP.mockResolvedValue(undefined)
             await authController.signup(req as Request, res as Response)
 
+            expect(mockEmailVerificationService.sendVerificationOTP).toHaveBeenCalledWith('123')
             expect(statusMock).toHaveBeenCalledWith(201)
             expect(jsonMock).toHaveBeenCalledWith(
                 expect.objectContaining({ email: 'hari@example.com' })
