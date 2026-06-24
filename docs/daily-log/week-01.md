@@ -661,3 +661,337 @@ These build on top of the Phase 1a foundation —
 users must exist before passwords can be reset.
 Email sending will be a placeholder until Phase 9
 when the notification service is built.
+
+---
+
+# Day 6 — 3 June 2026
+
+## Goal
+Begin Phase 1b — build forgotPassword, resetPassword, and
+changePassword services using TDD, with OTP-based verification.
+
+## Work Completed
+- Created ADR-003 documenting decision to separate PasswordService
+  from AuthService following Single Responsibility Principle
+- Created otp.utils.ts with generateOTP, hashOTP, compareOTP
+- Added 5 new repository methods: savePasswordResetOTP,
+  findPasswordResetOTP, markPasswordResetOTPUsed, updatePassword,
+  deleteAllRefreshTokensForUser
+- Built forgotPassword — generates OTP only if user exists,
+  always completes successfully regardless, preventing user
+  enumeration through crash-based status code differences
+- Built resetPassword — verifies email, OTP record, and OTP match,
+  all failures return identical "Invalid or expired OTP" message
+- Built changePassword — verifies old password via bcrypt.compare,
+  all failures return identical "Current password is incorrect"
+- Both resetPassword and changePassword delete all refresh tokens
+  after success, invalidating every active session
+- 56 tests passing across 5 test suites with 100% coverage
+- Opened new feature branch feature/auth-password-management
+
+## What I Learned
+
+### crypto.randomInt vs Math.random
+Math.random() is not cryptographically secure and should never
+be used for anything security-related — OTPs, tokens, secrets.
+crypto.randomInt() uses OS-level entropy and is safe for this.
+
+### SHA-256 vs bcrypt for OTPs
+bcrypt is intentionally slow (good for passwords, checked rarely).
+OTPs are checked frequently and only have 1,000,000 possible
+6-digit combinations, so a fast hash (SHA-256) combined with
+short expiry (15 min) and rate limiting provides adequate security
+without the unacceptable verification delay bcrypt would add.
+
+### Why if(user) check prevents enumeration through crashes
+Without checking if user exists before generating an OTP, calling
+user.id on a null user throws a TypeError, caught as an unexpected
+error, returning 500. Real emails would return 200, fake emails
+would return 500 — leaking exactly which emails are registered
+through status codes alone, even with identical response messages
+attempted. The if check ensures both paths return cleanly with 200.
+
+### ON DELETE CASCADE and foreign keys
+A foreign key (user_id REFERENCES users(id)) enforces referential
+integrity — you cannot create an OTP record for a non-existent
+user. ON DELETE CASCADE means deleting a user automatically deletes
+all their related records (OTPs, refresh tokens) instead of leaving
+orphaned data or blocking the deletion entirely.
+
+### Why password reset and change both invalidate all refresh tokens
+If an attacker had a stolen refresh token before a password reset
+happens, deleting all refresh tokens after the reset ensures that
+stolen token immediately becomes useless, forcing re-authentication
+everywhere. Password changes are often a response to suspected
+compromise, so this is a critical security step, not optional.
+
+### Same error message principle extended beyond login
+The "same error for different failure reasons" pattern from login
+applies everywhere identity or security state is being checked:
+resetPassword (email not found vs OTP expired vs OTP wrong — all
+same message) and changePassword (user not found vs wrong password
+— same message), consistently minimizing information leaked
+through error responses.
+
+### .resolves.not.toThrow() test syntax
+New Jest matcher pattern for proving a Promise resolves successfully
+without throwing, used specifically to test the negative case —
+that calling a function with invalid input does NOT crash, which
+directly verifies enumeration-prevention logic actually works.
+
+### Why some utility functions appear in tests and others don't
+generateOTP and compareOTP are called internally by the real
+service code being tested — the test never calls them directly,
+it just sets up scenarios for the real service to act on naturally.
+hashOTP is called directly in tests because we need to construct
+realistic mock database data (a hash, not a plain OTP) to simulate
+what the database would actually contain.
+
+## Problems Faced
+- Missing hashOTP import in test file caused TS2304 errors
+  in two separate test cases
+
+## How I Solved Them
+- Identified the import was simply missing from the top of the
+  test file and added it alongside existing imports
+
+## Security Rules Learned
+- Never use Math.random() for anything security-sensitive
+- Check for null/undefined before accessing properties to avoid
+  crashes that leak information through different status codes
+- Always invalidate all sessions (refresh tokens) after a password
+  change or reset, regardless of which flow triggered it
+- Same generic error message for every failure reason within
+  a given security-sensitive flow
+
+## Test Coverage
+
+56 tests passing
+
+5 test suites
+
+100% statements, branches, functions, lines
+
+
+## Commands Used
+```bash
+npm test
+git checkout -b feature/auth-password-management
+git add .
+git commit -m "docs(decisions): add ADR-003 separate password service"
+git commit -m "feat(auth): add PasswordService with forgotPassword, OTP utilities"
+git commit -m "feat(auth): add resetPassword with OTP verification and refresh token invalidation"
+git commit -m "feat(auth): add changePassword with old password verification"
+git push origin feature/auth-password-management
+```
+
+## Git Branch
+feature/auth-password-management
+
+## Commits Made
+- docs(decisions): add ADR-003 separate password service
+- feat(auth): add PasswordService with forgotPassword, OTP utilities
+- feat(auth): add resetPassword with OTP verification and refresh token invalidation
+- feat(auth): add changePassword with old password verification
+
+## Next Step
+Phase 1b continues — build controllers for forgotPassword,
+resetPassword, changePassword. Build validators for OTP format
+(6 digits) and new password strength rules (reusing existing
+password regex). Build routes mapping the three new endpoints.
+Then move to email verification — sends OTP on signup, verifies
+with code, separate from password reset OTP flow.
+
+---
+
+# Day 7 — 4 June 2026
+
+## Goal
+Complete Phase 1b — build controllers, validators, and routes for
+password management. Build email verification flow (separate from
+password reset). Wire verification into signup.
+
+## Work Completed
+- Built PasswordController — forgotPassword, resetPassword,
+  changePassword with full test coverage, caught and fixed two
+  missing branch coverage gaps independently
+- Built password validators — validateForgotPassword,
+  validateResetPassword, validateChangePassword, reusing
+  PASSWORD_REGEX and hasRepeatingCharacters from Session 4
+- Built password.routes.ts, wired into app.ts under /api/auth
+- Created ADR-003 documenting why PasswordService is separate
+  from AuthService (Single Responsibility Principle)
+- Designed email verification flow — traced a concrete bug
+  scenario showing why email_verification_otps needs to be a
+  SEPARATE table from password_reset_otps (shared table would
+  let a password reset request silently delete a pending email
+  verification OTP)
+- Created ADR-004 documenting email verification design decisions:
+  separate OTP table, signup() stays unchanged, controller
+  sequences signup() + sendVerificationOTP() separately, users
+  CAN log in before verifying email
+- Built EmailVerificationService — sendVerificationOTP, verifyEmail
+- Built EmailVerificationController and validateVerifyEmail validator
+- Built email-verification.routes.ts
+- Wired sendVerificationOTP into AuthController.signup() —
+  identified and documented a real SRP tension this creates,
+  added a section to ADR-004 explaining this will be properly
+  resolved via event-driven architecture (RabbitMQ) in Phase 6
+- Found and fixed a real production gap — unexpected errors were
+  caught and converted to 500 responses but never logged anywhere,
+  meaning real bugs would happen with zero developer visibility
+- Refactored repeated 6-line error handling block (duplicated 10
+  times across 3 controllers) into a single handleControllerError
+  utility function — applied DRY principle, fixed logging in one
+  place instead of ten
+- Verified the entire signup → email verification chain against
+  a real running server — confirmed ECONNREFUSED error from
+  PostgreSQL now logs full diagnostic detail server-side while
+  client still receives only the safe generic message
+- 90 tests passing, 100% coverage across all metrics
+
+## What I Learned
+
+### DRY principle (Don't Repeat Yourself)
+Noticed the same 6-line catch block existed identically 10 times
+across 3 controller files. Repeated code should be extracted into
+one shared function — fixing a bug in one copy means fixing it
+everywhere it was duplicated, which is error-prone and easy to
+miss. handleControllerError() consolidates this into one place.
+
+### Class-typed mocks vs instance-typed mocks
+Two different jest mocking patterns exist for a reason, not as
+arbitrary style:
+- ClassName.prototype.method.mockResolvedValue() — used when
+  the test creates FRESH instances repeatedly (e.g. new
+  UserRepository() inside beforeEach) — configuring via
+  .prototype ensures every future instance inherits the
+  configured behavior
+- jest.Mocked<ClassName> on a single instance — used when the
+  test reuses ONE mock instance across all tests, only the thing
+  being tested gets recreated fresh each time
+
+### Enumeration protection only applies to attacker-controlled input
+Initially over-applied the "same error message" principle to
+sendVerificationOTP, which doesn't need it. The distinction:
+forgotPassword(email) takes email directly from req.body —
+attacker-controlled, public input, enumeration risk is real.
+sendVerificationOTP(userId) is only ever called internally by
+our own controller right after signup succeeds — never exposed
+to arbitrary client input, so there's no guessing surface for
+an attacker to exploit. resendVerificationOTP (if built to take
+email from a public endpoint) WOULD need this protection.
+
+### SRP tension is sometimes an acceptable, documented tradeoff
+AuthController.signup() now calls both authService.signup() and
+emailVerificationService.sendVerificationOTP() — technically two
+reasons for the controller to change. Rather than over-engineering
+a premature fix, documented this as a known, accepted tradeoff in
+ADR-004, with a concrete plan to resolve it properly via the
+Observer pattern (RabbitMQ event "user.created") in Phase 6.
+Real engineering often means choosing the pragmatic option now
+and documenting the proper fix for later, not solving everything
+perfectly on the first pass.
+
+### Errors caught in try/catch never reach Express's global error handler
+The global error handler in app.ts only fires for errors passed
+via next(err) or uncaught in middleware. A controller's own
+try/catch that manually sends a response (our pattern, used
+everywhere) bypasses the global handler entirely — meaning errors
+caught there are completely invisible unless explicitly logged.
+This was a real, previously undetected gap across every controller
+in the codebase, found by manually testing the live server.
+
+### console.error placement matters for security AND observability
+Logging the real error server-side while still sending the generic
+"Internal server error" to the client achieves both goals
+simultaneously — security (no internal details leaked to attacker)
+and observability (developers can actually debug production issues).
+These are not in conflict if logging happens server-side only.
+
+### Foreign key constraints can mask bugs that need their own
+defensive handling
+Discussed whether to skip the findById check in
+sendVerificationOTP and rely on the database's foreign key
+constraint to reject invalid userIds. Decided against this —
+explicit checking produces a clean NotFoundError instead of a
+raw database constraint violation bubbling up as an opaque 500,
+and we need user.email from the lookup anyway for the eventual
+real email-sending step in Phase 9.
+
+## Problems Faced
+- Missing branch coverage caught twice independently in
+  PasswordController tests (AppError branch for forgotPassword,
+  500 branch for resetPassword and changePassword)
+- TypeScript error "Type 'Number' has no call signatures" when
+  writing handleControllerError — caused by forgetting to import
+  Response from express in errors.ts
+- AuthController constructor signature change (adding
+  EmailVerificationService) broke an existing test, requiring
+  the test file to be updated with a second mocked dependency
+- Discovered console.error was never being called anywhere,
+  meaning unexpected errors were completely silent in the
+  running server despite correct test coverage
+
+## How I Solved Them
+- Traced missing coverage lines back to specific untested
+  scenarios in each describe block, added the missing test cases
+- Identified the missing Response import myself before asking,
+  confirming the type conflict diagnosis
+- Updated auth.controller.test.ts to mock and inject
+  EmailVerificationService alongside the existing AuthService mock
+- Manually tested the live server with curl, observed silent
+  failure, traced it to try/catch blocks bypassing the global
+  error handler, fixed by extracting handleControllerError with
+  console.error built in
+
+## Security Rules Learned
+- Enumeration protection (same generic error message) only
+  applies to endpoints taking attacker-controlled input directly
+  from a public request body — not to internally-triggered calls
+  using server-generated values
+- Always log unexpected errors server-side even when returning
+  a generic message to the client — security and observability
+  are not mutually exclusive
+- Foreign key constraints are a backstop, not a substitute for
+  explicit validation that produces clean, intentional error
+  responses
+
+## Test Coverage
+
+90 tests passing
+
+9 test suites
+
+100% statements, branches, functions, lines
+
+## Commands Used
+```bash
+npm test
+npm run dev
+curl -X POST http://localhost:3001/api/auth/signup ...
+git add .
+git commit -m "feat(auth): add PasswordController with full branch coverage"
+git commit -m "feat(auth): add password validators with full branch coverage"
+git commit -m "feat(auth): add password routes, wire into app.ts"
+git commit -m "docs(decisions): add ADR-003 separate password service"
+git commit -m "docs(decisions): add ADR-004 email verification design"
+git commit -m "feat(auth): add EmailVerificationService with full test coverage"
+git commit -m "feat(auth): add EmailVerificationController with full test coverage"
+git commit -m "feat(auth): add validateVerifyEmail validator"
+git commit -m "feat(auth): wire EmailVerificationService into AuthController signup flow"
+git commit -m "docs(decisions): update ADR-004 with SRP tradeoff and Phase 6 resolution plan"
+git commit -m "refactor(auth): extract handleControllerError utility, add error logging"
+git push origin feature/auth-password-management
+```
+
+## Git Branch
+feature/auth-password-management
+
+## Next Step
+Phase 1c — OAuth2 (Google login). Will use the existing JWT
+issuing system from Phase 1a — OAuth only replaces HOW identity
+is verified, not what happens after. Need to understand OAuth2
+authorization code flow, handling users who sign up via Google
+vs email, and linking/duplicate-email edge cases before writing
+any code.

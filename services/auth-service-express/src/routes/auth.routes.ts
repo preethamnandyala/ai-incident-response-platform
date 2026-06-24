@@ -5,10 +5,12 @@ import { UserRepository } from '../repositories/user.repository'
 import { validateSignup, validateLogin } from '../validators/auth.validator'
 import { validateRequest } from '../middlewares/validateRequest'
 import { authenticateJWT } from '../middlewares/auth.middleware'
+import { EmailVerificationService } from '../services/email-verification.service'
 
 const userRepository = new UserRepository()
 const authService = new AuthService(userRepository)
-const authController = new AuthController(authService)
+const emailVerificationService = new EmailVerificationService(userRepository)
+const authController = new AuthController(authService, emailVerificationService)
 
 const router = Router()
 

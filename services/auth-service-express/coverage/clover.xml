@@ -1,51 +1,82 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<coverage generated="1781473138876" clover="3.2.0">
-  <project timestamp="1781473138876" name="All files">
-    <metrics statements="119" coveredstatements="119" conditionals="30" coveredconditionals="30" methods="20" coveredmethods="20" elements="169" coveredelements="169" complexity="0" loc="119" ncloc="119" packages="5" files="6" classes="6"/>
+<coverage generated="1781990043415" clover="3.2.0">
+  <project timestamp="1781990043415" name="All files">
+    <metrics statements="221" coveredstatements="221" conditionals="44" coveredconditionals="44" methods="40" coveredmethods="40" elements="305" coveredelements="305" complexity="0" loc="221" ncloc="221" packages="5" files="12" classes="12"/>
     <package name="controllers">
-      <metrics statements="40" coveredstatements="40" conditionals="10" coveredconditionals="10" methods="6" coveredmethods="6"/>
+      <metrics statements="65" coveredstatements="65" conditionals="0" coveredconditionals="0" methods="13" coveredmethods="13"/>
       <file name="auth.controller.ts" path="C:\Users\preet\ai-incident-response-platform\services\auth-service-express\src\controllers\auth.controller.ts">
-        <metrics statements="40" coveredstatements="40" conditionals="10" coveredconditionals="10" methods="6" coveredmethods="6"/>
+        <metrics statements="32" coveredstatements="32" conditionals="0" coveredconditionals="0" methods="6" coveredmethods="6"/>
+        <line num="3" count="1" type="stmt"/>
+        <line num="7" count="1" type="stmt"/>
+        <line num="13" count="15" type="stmt"/>
+        <line num="14" count="15" type="stmt"/>
+        <line num="18" count="3" type="stmt"/>
+        <line num="20" count="3" type="stmt"/>
+        <line num="21" count="3" type="stmt"/>
+        <line num="23" count="1" type="stmt"/>
+        <line num="25" count="1" type="stmt"/>
+        <line num="27" count="2" type="stmt"/>
+        <line num="32" count="3" type="stmt"/>
+        <line num="34" count="3" type="stmt"/>
+        <line num="35" count="3" type="stmt"/>
+        <line num="37" count="1" type="stmt"/>
+        <line num="44" count="1" type="stmt"/>
+        <line num="49" count="2" type="stmt"/>
+        <line num="55" count="3" type="stmt"/>
+        <line num="57" count="3" type="stmt"/>
+        <line num="58" count="3" type="stmt"/>
+        <line num="60" count="1" type="stmt"/>
+        <line num="66" count="1" type="stmt"/>
+        <line num="68" count="2" type="stmt"/>
+        <line num="73" count="3" type="stmt"/>
+        <line num="75" count="3" type="stmt"/>
+        <line num="76" count="3" type="stmt"/>
+        <line num="78" count="1" type="stmt"/>
+        <line num="80" count="2" type="stmt"/>
+        <line num="85" count="3" type="stmt"/>
+        <line num="87" count="3" type="stmt"/>
+        <line num="88" count="3" type="stmt"/>
+        <line num="90" count="1" type="stmt"/>
+        <line num="92" count="2" type="stmt"/>
+      </file>
+      <file name="email-verification.controller.ts" path="C:\Users\preet\ai-incident-response-platform\services\auth-service-express\src\controllers\email-verification.controller.ts">
+        <metrics statements="14" coveredstatements="14" conditionals="0" coveredconditionals="0" methods="3" coveredmethods="3"/>
         <line num="3" count="1" type="stmt"/>
         <line num="5" count="1" type="stmt"/>
-        <line num="10" count="15" type="stmt"/>
+        <line num="10" count="6" type="stmt"/>
+        <line num="14" count="3" type="stmt"/>
+        <line num="15" count="3" type="stmt"/>
+        <line num="17" count="3" type="stmt"/>
+        <line num="18" count="3" type="stmt"/>
+        <line num="20" count="1" type="stmt"/>
+        <line num="22" count="2" type="stmt"/>
+        <line num="27" count="3" type="stmt"/>
+        <line num="29" count="3" type="stmt"/>
+        <line num="30" count="3" type="stmt"/>
+        <line num="32" count="1" type="stmt"/>
+        <line num="34" count="2" type="stmt"/>
+      </file>
+      <file name="password.controller.ts" path="C:\Users\preet\ai-incident-response-platform\services\auth-service-express\src\controllers\password.controller.ts">
+        <metrics statements="19" coveredstatements="19" conditionals="0" coveredconditionals="0" methods="4" coveredmethods="4"/>
+        <line num="3" count="1" type="stmt"/>
+        <line num="5" count="1" type="stmt"/>
+        <line num="10" count="9" type="stmt"/>
         <line num="14" count="3" type="stmt"/>
         <line num="16" count="3" type="stmt"/>
         <line num="17" count="3" type="stmt"/>
-        <line num="18" count="1" type="stmt"/>
-        <line num="20" count="2" type="cond" truecount="2" falsecount="0"/>
-        <line num="21" count="1" type="stmt"/>
-        <line num="23" count="1" type="stmt"/>
-        <line num="29" count="3" type="stmt"/>
+        <line num="19" count="1" type="stmt"/>
+        <line num="23" count="2" type="stmt"/>
+        <line num="28" count="3" type="stmt"/>
+        <line num="30" count="3" type="stmt"/>
         <line num="31" count="3" type="stmt"/>
-        <line num="32" count="3" type="stmt"/>
-        <line num="34" count="1" type="stmt"/>
-        <line num="41" count="1" type="stmt"/>
-        <line num="46" count="2" type="cond" truecount="2" falsecount="0"/>
-        <line num="47" count="1" type="stmt"/>
-        <line num="49" count="1" type="stmt"/>
-        <line num="56" count="3" type="stmt"/>
-        <line num="58" count="3" type="stmt"/>
-        <line num="59" count="3" type="stmt"/>
-        <line num="61" count="1" type="stmt"/>
-        <line num="67" count="1" type="stmt"/>
-        <line num="69" count="2" type="cond" truecount="2" falsecount="0"/>
-        <line num="70" count="1" type="stmt"/>
-        <line num="72" count="1" type="stmt"/>
-        <line num="78" count="3" type="stmt"/>
-        <line num="80" count="3" type="stmt"/>
-        <line num="81" count="3" type="stmt"/>
-        <line num="83" count="1" type="stmt"/>
-        <line num="85" count="2" type="cond" truecount="2" falsecount="0"/>
-        <line num="86" count="1" type="stmt"/>
-        <line num="88" count="1" type="stmt"/>
-        <line num="94" count="3" type="stmt"/>
-        <line num="96" count="3" type="stmt"/>
-        <line num="97" count="3" type="stmt"/>
-        <line num="99" count="1" type="stmt"/>
-        <line num="101" count="2" type="cond" truecount="2" falsecount="0"/>
-        <line num="102" count="1" type="stmt"/>
-        <line num="104" count="1" type="stmt"/>
+        <line num="33" count="1" type="stmt"/>
+        <line num="37" count="2" type="stmt"/>
+        <line num="42" count="3" type="stmt"/>
+        <line num="43" count="3" type="stmt"/>
+        <line num="45" count="3" type="stmt"/>
+        <line num="46" count="3" type="stmt"/>
+        <line num="48" count="1" type="stmt"/>
+        <line num="52" count="2" type="stmt"/>
       </file>
     </package>
     <package name="middlewares">
@@ -69,7 +100,7 @@
       </file>
     </package>
     <package name="services">
-      <metrics statements="41" coveredstatements="41" conditionals="14" coveredconditionals="14" methods="6" coveredmethods="6"/>
+      <metrics statements="93" coveredstatements="93" conditionals="32" coveredconditionals="32" methods="13" coveredmethods="13"/>
       <file name="auth.service.ts" path="C:\Users\preet\ai-incident-response-platform\services\auth-service-express\src\services\auth.service.ts">
         <metrics statements="41" coveredstatements="41" conditionals="14" coveredconditionals="14" methods="6" coveredmethods="6"/>
         <line num="1" count="2" type="stmt"/>
@@ -114,35 +145,109 @@
         <line num="159" count="1" type="stmt"/>
         <line num="162" count="1" type="stmt"/>
       </file>
+      <file name="email-verification.service.ts" path="C:\Users\preet\ai-incident-response-platform\services\auth-service-express\src\services\email-verification.service.ts">
+        <metrics statements="19" coveredstatements="19" conditionals="6" coveredconditionals="6" methods="3" coveredmethods="3"/>
+        <line num="2" count="3" type="stmt"/>
+        <line num="3" count="3" type="stmt"/>
+        <line num="5" count="3" type="stmt"/>
+        <line num="10" count="5" type="stmt"/>
+        <line num="14" count="2" type="stmt"/>
+        <line num="15" count="2" type="cond" truecount="2" falsecount="0"/>
+        <line num="16" count="1" type="stmt"/>
+        <line num="19" count="1" type="stmt"/>
+        <line num="20" count="1" type="stmt"/>
+        <line num="22" count="1" type="stmt"/>
+        <line num="24" count="1" type="stmt"/>
+        <line num="28" count="3" type="stmt"/>
+        <line num="29" count="3" type="cond" truecount="2" falsecount="0"/>
+        <line num="30" count="1" type="stmt"/>
+        <line num="33" count="2" type="stmt"/>
+        <line num="34" count="2" type="cond" truecount="2" falsecount="0"/>
+        <line num="35" count="1" type="stmt"/>
+        <line num="38" count="1" type="stmt"/>
+        <line num="39" count="1" type="stmt"/>
+      </file>
+      <file name="password.service.ts" path="C:\Users\preet\ai-incident-response-platform\services\auth-service-express\src\services\password.service.ts">
+        <metrics statements="33" coveredstatements="33" conditionals="12" coveredconditionals="12" methods="4" coveredmethods="4"/>
+        <line num="1" count="2" type="stmt"/>
+        <line num="3" count="2" type="stmt"/>
+        <line num="4" count="2" type="stmt"/>
+        <line num="7" count="2" type="stmt"/>
+        <line num="12" count="9" type="stmt"/>
+        <line num="16" count="2" type="stmt"/>
+        <line num="18" count="2" type="cond" truecount="2" falsecount="0"/>
+        <line num="19" count="1" type="stmt"/>
+        <line num="20" count="1" type="stmt"/>
+        <line num="22" count="1" type="stmt"/>
+        <line num="25" count="1" type="stmt"/>
+        <line num="32" count="4" type="stmt"/>
+        <line num="33" count="4" type="cond" truecount="2" falsecount="0"/>
+        <line num="34" count="1" type="stmt"/>
+        <line num="37" count="3" type="stmt"/>
+        <line num="38" count="3" type="cond" truecount="2" falsecount="0"/>
+        <line num="39" count="1" type="stmt"/>
+        <line num="42" count="2" type="stmt"/>
+        <line num="43" count="2" type="cond" truecount="2" falsecount="0"/>
+        <line num="44" count="1" type="stmt"/>
+        <line num="47" count="1" type="stmt"/>
+        <line num="48" count="1" type="stmt"/>
+        <line num="49" count="1" type="stmt"/>
+        <line num="50" count="1" type="stmt"/>
+        <line num="58" count="3" type="stmt"/>
+        <line num="59" count="3" type="cond" truecount="2" falsecount="0"/>
+        <line num="60" count="1" type="stmt"/>
+        <line num="63" count="2" type="stmt"/>
+        <line num="64" count="2" type="cond" truecount="2" falsecount="0"/>
+        <line num="65" count="1" type="stmt"/>
+        <line num="68" count="1" type="stmt"/>
+        <line num="69" count="1" type="stmt"/>
+        <line num="70" count="1" type="stmt"/>
+      </file>
     </package>
     <package name="utils">
-      <metrics statements="17" coveredstatements="17" conditionals="0" coveredconditionals="0" methods="6" coveredmethods="6"/>
+      <metrics statements="30" coveredstatements="30" conditionals="2" coveredconditionals="2" methods="10" coveredmethods="10"/>
       <file name="errors.ts" path="C:\Users\preet\ai-incident-response-platform\services\auth-service-express\src\utils\errors.ts">
-        <metrics statements="13" coveredstatements="13" conditionals="0" coveredconditionals="0" methods="5" coveredmethods="5"/>
-        <line num="1" count="3" type="stmt"/>
-        <line num="5" count="13" type="stmt"/>
-        <line num="6" count="13" type="stmt"/>
-        <line num="7" count="13" type="stmt"/>
-        <line num="8" count="13" type="stmt"/>
-        <line num="12" count="3" type="stmt"/>
-        <line num="14" count="2" type="stmt"/>
-        <line num="18" count="3" type="stmt"/>
-        <line num="20" count="7" type="stmt"/>
-        <line num="24" count="3" type="stmt"/>
-        <line num="26" count="2" type="stmt"/>
-        <line num="30" count="3" type="stmt"/>
-        <line num="32" count="2" type="stmt"/>
+        <metrics statements="18" coveredstatements="18" conditionals="2" coveredconditionals="2" methods="6" coveredmethods="6"/>
+        <line num="3" count="10" type="stmt"/>
+        <line num="7" count="26" type="stmt"/>
+        <line num="8" count="26" type="stmt"/>
+        <line num="9" count="26" type="stmt"/>
+        <line num="10" count="26" type="stmt"/>
+        <line num="14" count="10" type="stmt"/>
+        <line num="16" count="2" type="stmt"/>
+        <line num="20" count="10" type="stmt"/>
+        <line num="22" count="18" type="stmt"/>
+        <line num="26" count="10" type="stmt"/>
+        <line num="28" count="4" type="stmt"/>
+        <line num="32" count="10" type="stmt"/>
+        <line num="34" count="2" type="stmt"/>
+        <line num="38" count="10" type="stmt"/>
+        <line num="39" count="20" type="cond" truecount="2" falsecount="0"/>
+        <line num="40" count="10" type="stmt"/>
+        <line num="42" count="10" type="stmt"/>
+        <line num="43" count="10" type="stmt"/>
+      </file>
+      <file name="otp.utils.ts" path="C:\Users\preet\ai-incident-response-platform\services\auth-service-express\src\utils\otp.utils.ts">
+        <metrics statements="8" coveredstatements="8" conditionals="0" coveredconditionals="0" methods="3" coveredmethods="3"/>
+        <line num="1" count="5" type="stmt"/>
+        <line num="3" count="5" type="stmt"/>
+        <line num="4" count="2" type="stmt"/>
+        <line num="7" count="5" type="stmt"/>
+        <line num="8" count="10" type="stmt"/>
+        <line num="11" count="5" type="stmt"/>
+        <line num="12" count="4" type="stmt"/>
+        <line num="13" count="4" type="stmt"/>
       </file>
       <file name="password.utils.ts" path="C:\Users\preet\ai-incident-response-platform\services\auth-service-express\src\utils\password.utils.ts">
         <metrics statements="4" coveredstatements="4" conditionals="0" coveredconditionals="0" methods="1" coveredmethods="1"/>
-        <line num="1" count="1" type="stmt"/>
-        <line num="3" count="1" type="stmt"/>
-        <line num="5" count="1" type="stmt"/>
-        <line num="6" count="8" type="stmt"/>
+        <line num="1" count="2" type="stmt"/>
+        <line num="3" count="2" type="stmt"/>
+        <line num="5" count="2" type="stmt"/>
+        <line num="6" count="15" type="stmt"/>
       </file>
     </package>
     <package name="validators">
-      <metrics statements="7" coveredstatements="7" conditionals="2" coveredconditionals="2" methods="1" coveredmethods="1"/>
+      <metrics statements="19" coveredstatements="19" conditionals="6" coveredconditionals="6" methods="3" coveredmethods="3"/>
       <file name="auth.validator.ts" path="C:\Users\preet\ai-incident-response-platform\services\auth-service-express\src\validators\auth.validator.ts">
         <metrics statements="7" coveredstatements="7" conditionals="2" coveredconditionals="2" methods="1" coveredmethods="1"/>
         <line num="1" count="1" type="stmt"/>
@@ -152,6 +257,21 @@
         <line num="35" count="1" type="stmt"/>
         <line num="37" count="7" type="stmt"/>
         <line num="42" count="1" type="stmt"/>
+      </file>
+      <file name="password.validator.ts" path="C:\Users\preet\ai-incident-response-platform\services\auth-service-express\src\validators\password.validator.ts">
+        <metrics statements="12" coveredstatements="12" conditionals="4" coveredconditionals="4" methods="2" coveredmethods="2"/>
+        <line num="1" count="1" type="stmt"/>
+        <line num="2" count="1" type="stmt"/>
+        <line num="4" count="1" type="stmt"/>
+        <line num="14" count="1" type="stmt"/>
+        <line num="43" count="4" type="cond" truecount="2" falsecount="0"/>
+        <line num="44" count="1" type="stmt"/>
+        <line num="46" count="3" type="stmt"/>
+        <line num="51" count="1" type="stmt"/>
+        <line num="68" count="3" type="cond" truecount="2" falsecount="0"/>
+        <line num="69" count="1" type="stmt"/>
+        <line num="71" count="2" type="stmt"/>
+        <line num="76" count="1" type="stmt"/>
       </file>
     </package>
   </project>
