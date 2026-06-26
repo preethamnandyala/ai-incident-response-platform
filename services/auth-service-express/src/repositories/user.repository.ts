@@ -11,16 +11,15 @@ export interface CreateUserData{
 }
 
 export interface UserRecord {
-
     id: string
     name: string
     email: string
     passwordHash: string
     role: string
+    emailVerified: boolean
+    googleId: string | null
     createdAt: Date
     updatedAt: Date
-
-
 }
 
 export class UserRepository {
@@ -178,5 +177,49 @@ export class UserRepository {
           [userId]
       )
   }
+
+    async findByGoogleId(googleId: string): Promise<UserRecord | null> {
+        const result = await pool.query(
+            `SELECT id, name, email, 
+            password_hash as "passwordHash",
+            role,
+            email_verified as "emailVerified",
+            google_id as "googleId",
+            created_at as "createdAt",
+            updated_at as "updatedAt"
+            FROM users WHERE google_id = $1`,
+            [googleId]
+        )
+        if (result.rows.length === 0) return null
+        return result.rows[0]
+    }
+
+    async linkGoogleAccount(userId: string, googleId: string): Promise<void> {
+        await pool.query(
+            `UPDATE users SET google_id = $1, updated_at = NOW()
+            WHERE id = $2`,
+            [googleId, userId]
+        )
+    }
+
+    async createGoogleUser(
+        name: string,
+        email: string,
+        googleId: string
+    ): Promise<UserRecord> {
+        const result = await pool.query(
+            `INSERT INTO users (name, email, password_hash, role, email_verified, google_id)
+            VALUES ($1, $2, $3, $4, $5, $6)
+            RETURNING id, name, email, 
+            password_hash as "passwordHash",
+            role,
+            email_verified as "emailVerified",
+            google_id as "googleId",
+            created_at as "createdAt",
+            updated_at as "updatedAt"`,
+            [name, email, '', 'DEVELOPER', true, googleId]
+        )
+        return result.rows[0]
+    }
 
 }

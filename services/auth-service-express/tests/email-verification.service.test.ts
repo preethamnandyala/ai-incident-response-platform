@@ -1,7 +1,7 @@
 import { EmailVerificationService } from '../src/services/email-verification.service'
 import { UserRepository } from '../src/repositories/user.repository'
 import { hashOTP } from '../src/utils/otp.utils'
-import { UnauthorizedError } from '../src/utils/errors'
+import { mockUserRecord } from './fixtures'
 
 jest.mock('../src/repositories/user.repository')
 
@@ -19,15 +19,7 @@ describe('EmailVerificationService', () => {
     describe('sendVerificationOTP', () => {
 
         it('should generate and save OTP for the user', async () => {
-            mockUserRepository.prototype.findById.mockResolvedValue({
-                id: '123',
-                name: 'Hari',
-                email: 'hari@example.com',
-                passwordHash: '$2b$10$somehash',
-                role: 'DEVELOPER',
-                createdAt: new Date(),
-                updatedAt: new Date()
-            })
+            mockUserRepository.prototype.findById.mockResolvedValue(mockUserRecord)
             mockUserRepository.prototype.saveEmailVerificationOTP.mockResolvedValue(undefined)
 
             await emailVerificationService.sendVerificationOTP('123')

@@ -16,5 +16,11 @@ export const env = {
         user: process.env.DB_USER || 'postgres',
         password: process.env.DB_PASSWORD || ''
     },
+    google: {
+        clientId: process.env.GOOGLE_CLIENT_ID || '',
+        clientSecret: process.env.GOOGLE_CLIENT_SECRET || '',
+        callbackUrl: process.env.GOOGLE_CALLBACK_URL || ''
+    },
+    frontendUrl: process.env.FRONTEND_URL || 'http://localhost:3000',
     port: Number(process.env.PORT) || 3001
 }
