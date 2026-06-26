@@ -31,7 +31,7 @@ passport.use(new GoogleStrategy(
 
             return done(null, result)
         } catch (error) {
-            return done(error as Error, undefined)
+            return done(null, false, { message: 'Authentication failed' })
         }
     }
 ))
