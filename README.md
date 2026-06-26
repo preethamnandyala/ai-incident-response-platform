@@ -42,7 +42,7 @@ Documentation in progress. See docs/ folder.
 ## Build phases
 
 - [x] Phase 0 — Project setup
-- [ ] Phase 1 — Auth service
+- [x] Phase 1 — Auth service (1a core auth, 1b password management, 1c OAuth2)
 - [ ] Phase 2 — API Gateway
 - [ ] Phase 3 — Next.js dashboard
 - [ ] Phase 4 — Incident service
@@ -56,6 +56,19 @@ Documentation in progress. See docs/ folder.
 - [ ] Phase 12 — CI/CD
 - [ ] Phase 13 — Monitoring
 - [ ] Phase 14 — Deployment
+
+## Current status
+
+**Active development** — Phase 2 (API Gateway) in progress.
+
+Completed:
+- Phase 0 — Monorepo structure, Git workflow, documentation system
+- Phase 1a — Auth service: signup, login, logout, refresh, JWT, bcrypt
+- Phase 1b — Password management: OTP-based forgot/reset password, email verification
+- Phase 1c — OAuth2: Google login with Passport.js, duplicate email handling
+
+Tech decisions documented in docs/decisions/ (5 ADRs).
+96 unit tests, 100% coverage on completed services.
 
 ## Author
 
