@@ -348,3 +348,185 @@ OAuth callback handler, dashboard overview, incidents list,
 incident detail with AI analysis, log viewer, settings page.
 Uses shadcn/ui components and Recharts for data visualization.
 Calls our real Auth Service API through the API Gateway.
+
+
+---
+
+# Day 10 — 7 June 2026
+
+## Goal
+Build Phase 3 — Next.js Dashboard. Create the frontend
+application with auth pages, dashboard layout, protected routes,
+and API integration layer.
+
+## Work Completed
+- Created Next.js 16 app at apps/web-nextjs using App Router
+- Removed empty admin-react folder, used existing web-nextjs folder
+- Configured shadcn/ui with Nova preset and Base component library
+- Installed shadcn components: button, input, label, card, form,
+  sonner, badge
+- Installed axios, zustand, react-hook-form, @hookform/resolvers,
+  zod, lucide-react
+- Resolved multiple dependency conflicts:
+  downgraded TypeScript to match backend services
+  fixed Node version warnings (harmless, not blocking)
+- Built folder structure using Next.js App Router route groups:
+  (auth)/ for auth pages — centered card layout, no sidebar
+  (dashboard)/ for dashboard pages — sidebar + topbar layout
+- Created src/lib/api.ts — Axios instance with:
+  request interceptor (auto-attaches Bearer token)
+  response interceptor (auto-refreshes token on 401,
+  prevents infinite retry loop with _retry flag)
+- Created src/store/auth.store.ts — Zustand store with:
+  accessToken (null, stored in memory only)
+  user object (id, name, email, role)
+  isAuthenticated boolean
+  setAccessToken, setUser, logout actions
+- Created src/types/index.ts — User, AuthResponse, ApiError types
+- Added getErrorMessage utility to src/lib/utils.ts
+- Created .env.local with NEXT_PUBLIC_API_URL and
+  NEXT_PUBLIC_GOOGLE_CLIENT_ID
+- Changed Next.js dev port to 3006 (3000 taken by API Gateway)
+- Updated Auth Service FRONTEND_URL to http://localhost:3006
+- Built auth layout — centered card, gray background, max-w-md
+- Built login page — email + password form, Google OAuth button,
+  forgot password link, sign up link, IncidentAI logo
+- Built signup page — name, email, password, confirm password,
+  .refine() for password match validation, Google OAuth button
+- Built forgot password page — email form, success state shows
+  "check your email" message with link to reset page
+- Built reset password page — email, OTP, new password,
+  confirm password, same .refine() for password match
+- Built OAuth callback page — reads accessToken from URL query
+  param, calls /api/auth/me, stores user, redirects to dashboard
+- Built dashboard layout — sidebar with logo, nav items,
+  user info, logout button. Topbar with dynamic page title.
+  Protected route logic redirects to /login if not authenticated
+- Built dashboard page — 3 stat cards (placeholder), recent
+  incidents placeholder
+- Built incidents page — placeholder for Phase 4
+- Built logs page — placeholder for Phase 5
+- Verified all pages load correctly and navigation works
+- Verified protected route redirects unauthenticated users to login
+- Changed Next.js dev server to port 3006
+
+## What I Learned
+
+### Next.js App Router vs plain React
+Plain React sends an empty HTML div — browser downloads JavaScript,
+runs it, then builds the page (slow, bad for SEO). Next.js sends
+fully built HTML from the server — users see content immediately.
+File-based routing means creating a file IS the route — no router
+configuration needed. Route groups with (parentheses) organize
+files without affecting URLs.
+
+### Route groups — (auth) and (dashboard)
+Folders with parentheses in Next.js App Router are invisible to
+the URL system. (auth)/login/page.tsx → /login, not /auth/login.
+They exist only for code organization and to allow different
+layouts — auth pages get centered card layout, dashboard pages
+get sidebar + topbar layout. Without route groups, one root
+layout would apply to everything.
+
+### NEXT_PUBLIC_ prefix requirement
+Next.js builds code for two environments: server (Node.js) and
+browser. Without NEXT_PUBLIC_, all environment variables are
+server-only and never included in browser JavaScript bundles —
+protecting secrets like database passwords and JWT secrets from
+being exposed in devtools. NEXT_PUBLIC_ is an explicit opt-in
+saying "I know this value will be visible in the browser and
+that is intentional." Only truly public values (API URL,
+Google Client ID) get this prefix.
+
+### Axios interceptors
+Interceptors sit between your code and HTTP requests.
+Request interceptor runs before every request — reads access
+token from Zustand store and attaches Authorization header
+automatically, so components never manually add auth headers.
+Response interceptor runs after every response — catches 401
+errors, automatically calls /api/auth/refresh (refresh token
+sent as HTTP-only cookie automatically by browser), updates
+the stored access token, retries the original request.
+Without interceptors, every API call would need manual token
+handling — dozens of repetitive lines.
+
+### Why _retry flag prevents infinite loops
+Without it: 401 → try refresh → refresh returns 401 →
+interceptor catches that 401 → try refresh again → infinite loop.
+With _retry = true: first 401 tries refresh. If refresh also
+returns 401, the interceptor sees _retry is already true,
+skips the refresh attempt, calls logout() and redirects to /login.
+One attempt, clean exit.
+
+### Zustand vs React Context vs Redux
+React Context re-renders all consumers on any change, complex
+with nested providers. Redux is powerful but massive boilerplate.
+Zustand is 1kb, simple API, only re-renders components that use
+changed values. Critical advantage: getState() and setState()
+work outside React components — needed for Axios interceptors
+which run outside any component tree.
+
+### Why confirmPassword is not sent to the API
+confirmPassword is a frontend-only UX concern — it exists to
+catch typos before submission. The backend only needs the final
+password. Sending confirmPassword would be unnecessary data the
+backend ignores. The .refine() method on the Zod schema validates
+that both fields match before the form can be submitted.
+
+### Zod .refine() for cross-field validation
+Individual field validators only see their own value. When you
+need to compare two fields (password === confirmPassword), you
+use .refine() on the entire schema object — it receives all form
+data and can compare any fields. path: ['confirmPassword'] tells
+Zod which field to attach the error to in the UI.
+
+### Port conflict resolution
+API Gateway runs on port 3000. Next.js defaults to 3000.
+Solution: run Next.js on port 3006 (next dev -p 3006).
+Auth Service FRONTEND_URL updated to localhost:3006 so OAuth
+redirects land on the correct port. In production, no conflict
+exists — each service runs on its own Cloud Run instance with
+its own domain.
+
+### Frontend testing deferred to Phase 11
+Backend unit tests are high value without a database because
+services have pure, testable business logic. Frontend E2E tests
+(the most valuable kind — testing full user journeys) require
+the entire stack running including the database. Phase 10
+(Docker) connects everything. Phase 11 adds Playwright E2E
+tests and component tests once the full stack is available.
+
+## Problems Faced
+- Stray ? character caused build error in dashboard layout
+- Port conflict between Next.js (3000) and API Gateway (3000)
+- Windows Git Bash cannot create files with parentheses in path
+  without double-quoting the path
+- Various Node version warnings from newer packages (harmless)
+
+## How I Solved Them
+- Deleted the stray ? character from layout.tsx
+- Changed Next.js dev port to 3006, updated FRONTEND_URL in
+  Auth Service .env
+- Wrapped all paths containing parentheses in double quotes:
+  touch "src/app/(auth)/login/page.tsx"
+- Ignored Node version warnings — they are informational only
+
+## Pages Built
+
+/login           → email + password + Google OAuth
+/signup          → registration with confirm password
+/forgot-password → request OTP, success state
+/reset-password  → OTP + new password
+/auth/callback   → OAuth redirect handler
+/dashboard       → stat cards placeholder
+/incidents       → placeholder
+/logs            → placeholder
+
+## Next Step
+Phase 4 — Incident Service (Spring Boot).
+First backend service in a different language (Java).
+Will build: create incident, list incidents, get incident,
+update status, assign to user, incident timeline.
+When complete, wire up the incidents page in the dashboard
+with real data from this service.
+
