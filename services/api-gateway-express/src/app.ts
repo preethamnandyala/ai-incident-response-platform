@@ -44,10 +44,8 @@ app.get('/health', (req, res) => {
 app.use('/api/auth', createProxyMiddleware({
     target: env.services.auth,
     changeOrigin: true,
-    on: {
-        error: (err, req, res: any) => {
-            res.status(502).json({ error: 'Auth service unavailable' })
-        }
+    onError: (err: Error, req: any, res: any) => {
+    res.status(502).json({ error: 'X service unavailable' })
     }
 }))
 
@@ -57,10 +55,8 @@ app.use('/api/incidents',
     createProxyMiddleware({
         target: env.services.incident,
         changeOrigin: true,
-        on: {
-            error: (err, req, res: any) => {
-                res.status(502).json({ error: 'Incident service unavailable' })
-            }
+        onError: (err: Error, req: any, res: any) => {
+          res.status(502).json({ error: 'X service unavailable' })
         }
     })
 )
@@ -70,10 +66,8 @@ app.use('/api/logs',
     createProxyMiddleware({
         target: env.services.log,
         changeOrigin: true,
-        on: {
-            error: (err, req, res: any) => {
-                res.status(502).json({ error: 'Log service unavailable' })
-            }
+        onError: (err: Error, req: any, res: any) => {
+          res.status(502).json({ error: 'X service unavailable' })
         }
     })
 )
@@ -83,10 +77,8 @@ app.use('/api/ai',
     createProxyMiddleware({
         target: env.services.ai,
         changeOrigin: true,
-        on: {
-            error: (err, req, res: any) => {
-                res.status(502).json({ error: 'AI service unavailable' })
-            }
+        onError: (err: Error, req: any, res: any) => {
+          res.status(502).json({ error: 'X service unavailable' })
         }
     })
 )
@@ -96,10 +88,8 @@ app.use('/api/notify',
     createProxyMiddleware({
         target: env.services.notify,
         changeOrigin: true,
-        on: {
-            error: (err, req, res: any) => {
-                res.status(502).json({ error: 'Notification service unavailable' })
-            }
+        onError: (err: Error, req: any, res: any) => {
+          res.status(502).json({ error: 'X service unavailable' })
         }
     })
 )
