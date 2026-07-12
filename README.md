@@ -19,16 +19,16 @@ This platform simulates a real-world incident management system similar to Datad
 
 ## Tech stack
 
-**Frontend:** Next.js, TypeScript, Tailwind CSS  
-**Backend:** Express, Spring Boot, Django, FastAPI, Flask  
-**Databases:** PostgreSQL, MongoDB, Redis  
-**Messaging:** RabbitMQ  
-**DevOps:** Docker, GitHub Actions, GCP Cloud Run  
-**Monitoring:** Prometheus, Grafana  
+**Frontend:** Next.js, TypeScript, Tailwind CSS, shadcn/ui, Zustand
+**Backend:** Express, Spring Boot, Django, FastAPI, Flask
+**Databases:** PostgreSQL, MongoDB, Redis
+**Messaging:** RabbitMQ
+**DevOps:** Docker, GitHub Actions, AWS ECS Fargate
+**Monitoring:** Prometheus, Grafana, CloudWatch
 
 ## Project structure
 
-apps/          → Frontend applications
+apps/          → Frontend applications (Next.js dashboard)
 services/      → Backend microservices
 demo-apps/     → Applications that generate logs for monitoring
 packages/      → Shared code across services
@@ -38,13 +38,14 @@ docs/          → Architecture, decisions, daily logs, API contracts
 ## Getting started
 
 Documentation in progress. See docs/ folder.
+Full local setup available after Phase 10 (Docker).
 
 ## Build phases
 
 - [x] Phase 0 — Project setup
 - [x] Phase 1 — Auth service (1a core auth, 1b password management, 1c OAuth2)
-- [ ] Phase 2 — API Gateway
-- [ ] Phase 3 — Next.js dashboard
+- [x] Phase 2 — API Gateway
+- [x] Phase 3 — Next.js dashboard
 - [ ] Phase 4 — Incident service
 - [ ] Phase 5 — Log service
 - [ ] Phase 6 — RabbitMQ event system
@@ -59,16 +60,23 @@ Documentation in progress. See docs/ folder.
 
 ## Current status
 
-**Active development** — Phase 2 (API Gateway) in progress.
+**Active development** — Phase 4 (Incident Service) in progress.
 
 Completed:
 - Phase 0 — Monorepo structure, Git workflow, documentation system
 - Phase 1a — Auth service: signup, login, logout, refresh, JWT, bcrypt
 - Phase 1b — Password management: OTP-based forgot/reset password, email verification
 - Phase 1c — OAuth2: Google login with Passport.js, duplicate email handling
+- Phase 2 — API Gateway: JWT verification at edge, rate limiting,
+             request logging with IDs, proxy routing to 5 services
+- Phase 3 — Next.js dashboard: auth pages, dashboard layout,
+             protected routes, Zustand auth store, Axios interceptors,
+             shadcn/ui components
 
-Tech decisions documented in docs/decisions/ (5 ADRs).
-96 unit tests, 100% coverage on completed services.
+Tech decisions documented in docs/decisions/ (6 ADRs).
+96 unit tests, 100% coverage on auth service.
+12 middleware tests on API Gateway.
+Frontend E2E tests planned for Phase 11.
 
 ## Author
 
