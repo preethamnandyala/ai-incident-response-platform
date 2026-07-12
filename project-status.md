@@ -1,10 +1,11 @@
 # Project Status
 
-Date: 6 June 2026
-Current phase: Phase 3 — Next.js Dashboard
-Completed phases: Phase 0, Phase 1a, Phase 1b, Phase 1c, Phase 2
+Date: 7 June 2026
+Current phase: Phase 4 — Incident Service
+Completed phases: Phase 0, Phase 1a, Phase 1b, Phase 1c,
+                  Phase 2, Phase 3
 In progress: Not started
-Last commit: docs(daily-log): add day 9 session log
+Last commit: docs(daily-log): add day 10 session log
 Decisions made:
   ADR-001 — use monorepo structure
   ADR-002 — auth service phase split
