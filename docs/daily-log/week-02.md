@@ -163,3 +163,188 @@ from the frontend and demo apps. It routes requests to the
 correct backend service, verifies JWT tokens, applies rate
 limiting, and logs every request. This is the layer that
 connects the frontend to all the microservices we will build.
+
+
+---
+
+# Day 9 — 6 June 2026
+
+## Goal
+Build Phase 2 — API Gateway. Single entry point for all requests
+with JWT verification, rate limiting, request logging, and proxy
+routing to all downstream services.
+
+## Work Completed
+- Created api-gateway-express service from scratch
+- Installed and configured Express, helmet, cors, morgan,
+  http-proxy-middleware, express-rate-limit, cookie-parser
+- Resolved multiple ESM vs CommonJS conflicts:
+  downgraded http-proxy-middleware to 2.0.6
+  replaced uuid with Node built-in crypto.randomUUID()
+  downgraded TypeScript to 6.0.3 to match auth service
+  downgraded @types/express to 4.17.21
+- Built env.ts with JWT secret and 5 downstream service URLs
+- Built authenticateJWT middleware — verifies JWT and attaches
+  userId and role to x-user-id and x-user-role request headers
+  instead of req.user (because headers cross network boundaries,
+  req.user does not)
+- Built requestId middleware — generates UUID per request,
+  attaches to request and response headers for distributed tracing
+- Built Morgan logger middleware — logs method, URL, status,
+  response time, request ID on every request
+- Built rateLimiter middleware — 100 requests per minute per IP
+  using express-rate-limit
+- Built app.ts wiring all middleware and proxy routes
+- Auth routes proxied without JWT (public)
+- Incident, Log, AI, Notify routes proxied WITH JWT verification
+- 502 error handlers for when downstream services are unavailable
+- Built server.ts — starts on port 3000, logs all routing on startup
+- Fixed tsconfig to include tests/ and add jest/node types
+- Wrote 12 tests across 3 test files — auth middleware, logger
+  middleware, rate limiter middleware
+- Verified end-to-end: signup validation error proxied correctly
+  from Auth Service through Gateway. Protected route blocked at
+  Gateway with 401 in 1.874ms (never reached Incident Service)
+- Created ADR-006 documenting secrets management strategy —
+  .env for local development, AWS Secrets Manager for production,
+  centralized in env.ts for easy migration
+
+## What I Learned
+
+### Why API Gateway exists — 6 problems it solves
+Without a gateway the frontend must know every service address,
+JWT verification is duplicated across all services, CORS must
+be configured on every service, rate limiting must be implemented
+everywhere, there is no single place for request logging, and
+adding a new service requires frontend changes. The gateway
+solves all six in one place.
+
+### Why headers not req.user in the gateway
+req.user is a JavaScript object in memory — it only exists
+within a single Node.js process. When the gateway proxies a
+request to the Incident Service, the request crosses a network
+boundary to a completely different process. Only HTTP headers
+travel across the network. So the gateway attaches userId and
+role to x-user-id and x-user-role headers which downstream
+services read directly.
+
+### Request IDs for distributed tracing
+Every request gets a unique UUID (crypto.randomUUID()) attached
+as x-request-id header on both the request and response. This
+ID is forwarded to every downstream service and appears in every
+log line. When debugging a failure, you search all logs for
+the request ID and see the complete journey across every service
+that touched that request.
+
+### Why Auth Service shows no HTTP request logs
+Auth Service has no Morgan middleware — intentionally. The gateway
+is the single point of HTTP observability. Downstream services
+only receive traffic from the gateway (internal network), so
+logging at the gateway level captures all external traffic.
+Each service logs business events (OTP generated, user created)
+separately. These are different concerns: HTTP traffic vs
+business logic events.
+
+### 502 Bad Gateway vs 500 Internal Server Error
+502 means "I am a proxy and the upstream server I tried to reach
+was unavailable or returned an invalid response." 500 means
+"something went wrong inside THIS service." When a downstream
+service is down, the gateway correctly returns 502, not 500.
+This tells the client exactly what happened: the gateway itself
+is fine, a specific upstream service is unavailable.
+
+### ESM vs CommonJS conflicts
+Modern npm packages are shipping as ES Modules (ESM) only, but
+our project uses CommonJS (ts-node compiles to require()).
+Solution: pin packages to older versions that still support
+CommonJS (http-proxy-middleware@2.0.6), or use Node built-ins
+that are already available globally (crypto.randomUUID() instead
+of uuid package). These conflicts will become less common as
+the ecosystem migrates, but require awareness now.
+
+### crypto.randomUUID() — built into Node 18+
+No package needed. Available as a global in any Node.js 18+
+environment. Generates a cryptographically secure UUID v4.
+Replaces the uuid npm package entirely for simple use cases.
+
+### Why gateway has no service, repository, or validator layer
+The gateway has no business logic — it does not know what an
+incident or a log or a user is. It never reads or writes a
+database. It validates nothing (downstream services own their
+validation). Its only jobs are verify → attach headers → forward
+→ return response. Adding layers that do not exist yet is
+over-engineering. The thinner the gateway, the better.
+
+### AWS Secrets Manager vs .env files
+.env files are correct for local development (never committed
+to Git). In production, secrets are stored in AWS Secrets Manager
+and fetched at startup via the AWS SDK. Centralizing config in
+env.ts means switching secret sources is a one-file change per
+service. IAM roles restrict which services can access which
+secrets. Full audit trail of access. Automatic rotation available.
+
+## Problems Faced
+- ERR_REQUIRE_ESM from http-proxy-middleware (latest version ESM only)
+- ERR_REQUIRE_ESM from uuid (version 10 ESM only)
+- TypeScript peer dependency conflict (TypeScript 7 vs ts-jest needing <7)
+- @types/express v5 conflict with http-proxy-middleware@2.0.6
+- Custom keyGenerator IPv6 validation error from express-rate-limit
+- @types/jest not in tsconfig types array causing describe/it/expect errors
+- on: {} syntax removed in http-proxy-middleware 2.x
+
+## How I Solved Them
+- Pinned http-proxy-middleware to 2.0.6 (CommonJS compatible)
+- Replaced uuid with crypto.randomUUID() (Node built-in, no package)
+- Downgraded TypeScript to 6.0.3 to match auth service
+- Downgraded @types/express to 4.17.21
+- Removed custom keyGenerator — express-rate-limit handles IPv6 by default
+- Added "types": ["jest", "node"] and "tests/**/*" to tsconfig
+- Changed on: { error: ... } to onError: ... in proxy config
+
+## Security Rules Learned
+- JWT verification belongs at the gateway edge — downstream services
+  trust what the gateway says, never re-verify independently
+- Rate limiting at the gateway protects ALL services simultaneously —
+  an attacker cannot bypass it by targeting services directly
+  (services only accept internal traffic in production)
+- x-user-id and x-user-role headers must NEVER come from the client
+  directly — the gateway strips and rewrites them after JWT verification
+  so downstream services can trust them completely
+
+## Test Coverage
+
+12 tests passing
+3 test suites
+Coverage thresholds met across all middleware files
+app.ts excluded from coverage (proxy wiring, tested manually)
+
+## Commands Used
+```bash
+mkdir api-gateway-express
+cd api-gateway-express
+npm init -y
+npm install express cors helmet morgan http-proxy-middleware@2.0.6
+npm install express-rate-limit jsonwebtoken dotenv cookie-parser
+npm install --save-dev typescript@6.0.3 ts-node-dev @types/express@4.17.21
+npm install --save-dev @types/cors @types/morgan @types/jsonwebtoken
+npm install --save-dev @types/cookie-parser jest ts-jest @types/jest
+npm test
+npm run dev
+git add .
+git commit -m "feat(gateway): initialize API Gateway service with config, env, and JWT middleware"
+git commit -m "feat(gateway): add rate limiter, logger, proxy middleware, app.ts, server.ts"
+git commit -m "feat(gateway): add middleware tests, fix tsconfig, use crypto.randomUUID"
+git commit -m "docs(decisions): add ADR-006 secrets management strategy"
+git push origin feature/api-gateway
+```
+
+## Git Branch
+feature/api-gateway
+
+## Next Step
+Phase 3 — Next.js Dashboard.
+Build the frontend application: login page, signup page,
+OAuth callback handler, dashboard overview, incidents list,
+incident detail with AI analysis, log viewer, settings page.
+Uses shadcn/ui components and Recharts for data visualization.
+Calls our real Auth Service API through the API Gateway.
