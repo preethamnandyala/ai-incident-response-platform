@@ -8,6 +8,7 @@ export const mockUserRecord: UserRecord = {
     role: 'DEVELOPER',
     emailVerified: true,
     googleId: null,
+    organizationId: 'org_default',
     createdAt: new Date(),
     updatedAt: new Date()
 }

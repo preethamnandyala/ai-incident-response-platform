@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<coverage generated="1782487390726" clover="3.2.0">
-  <project timestamp="1782487390726" name="All files">
+<coverage generated="1784129456709" clover="3.2.0">
+  <project timestamp="1784129456709" name="All files">
     <metrics statements="249" coveredstatements="249" conditionals="50" coveredconditionals="50" methods="43" coveredmethods="43" elements="342" coveredelements="342" complexity="0" loc="249" ncloc="249" packages="5" files="14" classes="14"/>
     <package name="controllers">
       <metrics statements="75" coveredstatements="75" conditionals="0" coveredconditionals="0" methods="14" coveredmethods="14"/>
@@ -136,27 +136,27 @@
         <line num="80" count="2" type="cond" truecount="2" falsecount="0"/>
         <line num="81" count="1" type="stmt"/>
         <line num="85" count="1" type="stmt"/>
-        <line num="92" count="1" type="stmt"/>
-        <line num="99" count="1" type="stmt"/>
-        <line num="102" count="1" type="stmt"/>
-        <line num="115" count="2" type="cond" truecount="2" falsecount="0"/>
-        <line num="116" count="1" type="stmt"/>
-        <line num="119" count="1" type="stmt"/>
-        <line num="125" count="4" type="stmt"/>
-        <line num="126" count="4" type="stmt"/>
-        <line num="131" count="1" type="stmt"/>
-        <line num="135" count="3" type="stmt"/>
-        <line num="136" count="3" type="cond" truecount="2" falsecount="0"/>
-        <line num="137" count="1" type="stmt"/>
-        <line num="141" count="2" type="stmt"/>
-        <line num="142" count="2" type="cond" truecount="2" falsecount="0"/>
-        <line num="143" count="1" type="stmt"/>
+        <line num="96" count="1" type="stmt"/>
+        <line num="103" count="1" type="stmt"/>
+        <line num="106" count="1" type="stmt"/>
+        <line num="119" count="2" type="cond" truecount="2" falsecount="0"/>
+        <line num="120" count="1" type="stmt"/>
+        <line num="123" count="1" type="stmt"/>
+        <line num="129" count="4" type="stmt"/>
+        <line num="130" count="4" type="stmt"/>
+        <line num="135" count="1" type="stmt"/>
+        <line num="139" count="3" type="stmt"/>
+        <line num="140" count="3" type="cond" truecount="2" falsecount="0"/>
+        <line num="141" count="1" type="stmt"/>
+        <line num="145" count="2" type="stmt"/>
+        <line num="146" count="2" type="cond" truecount="2" falsecount="0"/>
         <line num="147" count="1" type="stmt"/>
-        <line num="153" count="1" type="stmt"/>
-        <line num="157" count="2" type="stmt"/>
-        <line num="158" count="2" type="cond" truecount="2" falsecount="0"/>
-        <line num="159" count="1" type="stmt"/>
-        <line num="162" count="1" type="stmt"/>
+        <line num="151" count="1" type="stmt"/>
+        <line num="157" count="1" type="stmt"/>
+        <line num="161" count="2" type="stmt"/>
+        <line num="162" count="2" type="cond" truecount="2" falsecount="0"/>
+        <line num="163" count="1" type="stmt"/>
+        <line num="166" count="1" type="stmt"/>
       </file>
       <file name="email-verification.service.ts" path="C:\Users\preet\ai-incident-response-platform\services\auth-service-express\src\services\email-verification.service.ts">
         <metrics statements="19" coveredstatements="19" conditionals="6" coveredconditionals="6" methods="3" coveredmethods="3"/>
@@ -197,9 +197,9 @@
         <line num="38" count="1" type="stmt"/>
         <line num="41" count="1" type="stmt"/>
         <line num="46" count="3" type="stmt"/>
-        <line num="52" count="3" type="stmt"/>
-        <line num="58" count="3" type="stmt"/>
-        <line num="60" count="3" type="stmt"/>
+        <line num="56" count="3" type="stmt"/>
+        <line num="62" count="3" type="stmt"/>
+        <line num="64" count="3" type="stmt"/>
       </file>
       <file name="password.service.ts" path="C:\Users\preet\ai-incident-response-platform\services\auth-service-express\src\services\password.service.ts">
         <metrics statements="33" coveredstatements="33" conditionals="12" coveredconditionals="12" methods="4" coveredmethods="4"/>
