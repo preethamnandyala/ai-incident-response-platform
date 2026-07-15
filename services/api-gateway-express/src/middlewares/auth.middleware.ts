@@ -20,10 +20,11 @@ export const authenticateJWT = (
         const decoded = jwt.verify(
             token,
             env.jwt.accessSecret
-        ) as { userId: string, role: string }
+        ) as { userId: string, role: string, organizationId?: string }
 
         req.headers['x-user-id'] = decoded.userId
         req.headers['x-user-role'] = decoded.role
+        req.headers['x-organization-id'] = decoded.organizationId || 'default'
 
         next()
     } catch {
