@@ -1,9 +1,9 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<coverage generated="1783857701247" clover="3.2.0">
-  <project timestamp="1783857701247" name="All files">
-    <metrics statements="25" coveredstatements="22" conditionals="4" coveredconditionals="4" methods="2" coveredmethods="2" elements="31" coveredelements="28" complexity="0" loc="25" ncloc="25" packages="1" files="3" classes="3"/>
+<coverage generated="1784128671254" clover="3.2.0">
+  <project timestamp="1784128671254" name="All files">
+    <metrics statements="26" coveredstatements="23" conditionals="6" coveredconditionals="6" methods="2" coveredmethods="2" elements="34" coveredelements="31" complexity="0" loc="26" ncloc="26" packages="1" files="3" classes="3"/>
     <file name="auth.middleware.ts" path="C:\Users\preet\ai-incident-response-platform\services\api-gateway-express\src\middlewares\auth.middleware.ts">
-      <metrics statements="15" coveredstatements="15" conditionals="4" coveredconditionals="4" methods="1" coveredmethods="1"/>
+      <metrics statements="16" coveredstatements="16" conditionals="6" coveredconditionals="6" methods="1" coveredmethods="1"/>
       <line num="2" count="1" type="stmt"/>
       <line num="3" count="1" type="stmt"/>
       <line num="5" count="1" type="stmt"/>
@@ -16,9 +16,10 @@
       <line num="20" count="4" type="stmt"/>
       <line num="25" count="2" type="stmt"/>
       <line num="26" count="2" type="stmt"/>
-      <line num="28" count="2" type="stmt"/>
-      <line num="30" count="2" type="stmt"/>
+      <line num="27" count="2" type="cond" truecount="2" falsecount="0"/>
+      <line num="29" count="2" type="stmt"/>
       <line num="31" count="2" type="stmt"/>
+      <line num="32" count="2" type="stmt"/>
     </file>
     <file name="logger.middleware.ts" path="C:\Users\preet\ai-incident-response-platform\services\api-gateway-express\src\middlewares\logger.middleware.ts">
       <metrics statements="7" coveredstatements="7" conditionals="0" coveredconditionals="0" methods="1" coveredmethods="1"/>

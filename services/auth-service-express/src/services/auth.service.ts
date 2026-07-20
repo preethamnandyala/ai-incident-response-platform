@@ -83,9 +83,13 @@ export class AuthService{
 
     // Generate access token
     const accessToken = jwt.sign(
-        { userId: user.id, role: user.role },
-        env.jwt.accessSecret,
-        { expiresIn: env.jwt.accessExpiry as '15m' }
+    {
+        userId: user.id,
+        role: user.role,
+        organizationId: user.organizationId
+    },
+    env.jwt.accessSecret,
+    { expiresIn: env.jwt.accessExpiry as '15m' }
     )
 
     // Generate refresh token

@@ -20,7 +20,7 @@ describe('authenticateJWT', () => {
         res = { status: statusMock }
     })
 
-    it('should call next and set x-user-id and x-user-role headers when token is valid', () => {
+    it('should call next and set x-user-id and x-user-role and x-organization-id headers when token is valid', () => {
         const token = jwt.sign(
             { userId: '123', role: 'DEVELOPER' },
             env.jwt.accessSecret,
@@ -34,6 +34,7 @@ describe('authenticateJWT', () => {
         expect(next).toHaveBeenCalled()
         expect(req.headers['x-user-id']).toBe('123')
         expect(req.headers['x-user-role']).toBe('DEVELOPER')
+        expect(req.headers['x-organization-id']).toBe('default')
     })
 
     it('should return 401 when no authorization header', () => {
