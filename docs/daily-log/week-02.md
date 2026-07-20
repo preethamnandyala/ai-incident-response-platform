@@ -530,3 +530,220 @@ update status, assign to user, incident timeline.
 When complete, wire up the incidents page in the dashboard
 with real data from this service.
 
+---
+
+# Day 11 — 8 June 2026
+
+## Goal
+Build Phase 4 — Incident Service using Spring Boot (Java).
+First service in a different language. Introduce multi-tenancy
+with organizationId across all domain entities.
+
+## Work Completed
+- Generated Spring Boot 3.5.0 project via Spring Initializr
+  with dependencies: web, data-jpa, postgresql, lombok, validation
+- Created folder structure:
+  controller, service, repository, entity, dto, exception
+- Configured application.properties for port 3002 and PostgreSQL
+- Built Incident entity with:
+  id (UUID auto-generated), title, description, severity (enum),
+  status (enum), serviceName, assignedTo, createdBy,
+  organizationId, createdAt, updatedAt
+  Lombok @Data, @Builder, @NoArgsConstructor, @AllArgsConstructor
+- Built IncidentRepository extending JpaRepository with
+  derived query methods:
+  findByOrganizationIdOrderByCreatedAtDesc
+  findByOrganizationIdAndStatus
+  findByOrganizationIdAndSeverity
+  findByOrganizationIdAndAssignedTo
+  findByOrganizationIdAndServiceName
+- Built DTOs: CreateIncidentRequest, UpdateStatusRequest,
+  AssignIncidentRequest, IncidentResponse with static from() factory
+- Built IncidentNotFoundException and GlobalExceptionHandler
+  (@RestControllerAdvice) handling 404, 400, 500
+- Built IncidentService with organization isolation check on
+  every operation — throws IncidentNotFoundException (not 403)
+  when organization does not match, preventing enumeration
+- Built IncidentController reading x-user-id and
+  x-organization-id from request headers (set by API Gateway)
+- Added H2 in-memory database for tests
+- Created application-test.properties with H2 config
+- Wrote 24 tests:
+  9 integration tests (@SpringBootTest + MockMvc)
+  11 unit tests (@ExtendWith MockitoExtension)
+  4 repository slice tests (@DataJpaTest)
+  1 context load test
+- Added organizationId to Auth Service UserRecord interface
+- Updated findByEmail, findById SELECT queries to include
+  organization_id column
+- Updated create() and createGoogleUser() to set org_default
+- Updated login() and handleGoogleCallback() to include
+  organizationId in JWT payload
+- Updated fixtures.ts with organizationId: 'org_default'
+- Updated API Gateway auth middleware to forward
+  x-organization-id header from decoded JWT
+- Updated gateway tests to assert x-organization-id header
+- Created ADR-007 documenting multi-tenancy strategy
+- Auth service tests: 96 passing, 100% coverage
+- Gateway tests: 12 passing, all green
+- Incident service tests: 24 passing, BUILD SUCCESS
+- Verified connection refused to PostgreSQL (expected,
+  confirms wiring correct, Phase 10 adds database)
+
+## What I Learned
+
+### Java vs TypeScript — key differences
+Java is strongly typed from the ground up — no TypeScript layer
+needed on top. Annotations drive framework behavior instead of
+manual wiring. @RestController, @Service, @Repository tell Spring
+Boot what each class is. Spring automatically creates and injects
+dependencies (same as our constructor injection, just automated).
+
+### Lombok — eliminating Java boilerplate
+Without Lombok, a Java class with 10 fields needs 50+ lines of
+getters, setters, constructors, toString, equals, hashCode.
+@Data generates all of these automatically. @Builder generates
+the builder pattern. @RequiredArgsConstructor generates
+constructor injection. Lombok is not magic — it generates real
+Java code at compile time that you can inspect.
+
+### JPA derived query methods
+Spring Data JPA reads method names and generates SQL automatically.
+findByOrganizationIdOrderByCreatedAtDesc →
+SELECT * FROM incidents WHERE organization_id = ? ORDER BY created_at DESC
+No SQL written manually for basic queries. Only write @Query for
+complex operations JPA cannot infer from the method name.
+
+### Optional and orElseThrow
+Java's Optional<T> is equivalent to TypeScript's T | null.
+findById() returns Optional<Incident> — might or might not exist.
+.orElseThrow(() -> new IncidentNotFoundException(id)) means:
+if present return the value, if empty throw this exception.
+Cleaner than null checks everywhere.
+
+### Java streams
+.stream().map(IncidentResponse::from).collect(Collectors.toList())
+is equivalent to JavaScript's .map(i => IncidentResponse.from(i))
+:: is method reference syntax — shorthand for a lambda that
+calls one method. Streams are lazy — they only process elements
+when a terminal operation (collect) is called.
+
+### Three test types in Spring Boot
+Pure unit test (@ExtendWith MockitoExtension): no Spring context,
+no database, all dependencies mocked, tests logic only, runs in
+milliseconds. Slice test (@DataJpaTest): partial Spring context,
+real H2 database, tests JPA queries generate correct SQL, catches
+typos in derived query method names. Integration test
+(@SpringBootTest): full Spring context, real H2, real MockMvc
+HTTP requests, tests entire stack end to end.
+
+### Why repository tests are NOT unit tests
+A pure unit test has zero external dependencies. Repository slice
+tests use a real H2 database — data actually inserts and queries.
+They test that JPA method names generate correct SQL, which
+service unit tests cannot catch because they mock the repository.
+
+### Multi-tenancy design decision
+organizationId added to every domain entity from Phase 4.
+Extracted from JWT by API Gateway, forwarded as x-organization-id
+header. Services never trust organizationId from request bodies —
+only from gateway headers. Organization isolation enforced by
+throwing IncidentNotFoundException (not 403) when org does not
+match — same user enumeration prevention principle from auth.
+
+### Why throw 404 not 403 for wrong organization
+If we returned 403 Forbidden when an organization tries to access
+another organization's incident, we would reveal that the incident
+EXISTS but they cannot access it. Returning 404 reveals nothing —
+the incident simply does not exist for this organization. Same
+principle as our login error message ("Invalid email or password"
+instead of "Email not found").
+
+### H2 in-memory database
+Behaves like PostgreSQL for testing — supports same SQL, same JPA.
+Runs entirely in memory, no installation needed, destroyed after
+tests. Configured via application-test.properties with
+@ActiveProfiles("test"). Without it, tests would require a real
+PostgreSQL running on every machine and CI/CD pipeline.
+
+### Why we deviated from TDD and why it was wrong
+Wrote production code before tests because Spring Boot's compile
+and context-boot cycle makes TDD feel slower. This was the wrong
+call — tests prove organization isolation works, @Valid fires
+correctly, gateway headers are read properly. Without tests,
+these are assumptions not facts. Correct approach: write tests
+even for Spring Boot, use H2 to avoid database dependency,
+use @DataJpaTest and @ExtendWith for fast feedback cycles.
+
+### SDK vs Agent
+SDK: installed inside your application code, you call it
+explicitly (monitor.error('DB timeout')). Agent: runs as a
+separate process alongside your application, collects metrics
+automatically without code changes (CPU, memory, disk, crashes).
+We build the SDK in Phase 7, basic agent in Phase 10 as a Docker
+sidecar container. Together they make the platform usable by
+any real application.
+
+### This project as a real product
+The platform is designed to serve any company, not just demo apps.
+Multi-tenancy (organizationId on every entity) means Uber's
+incidents never mix with Amazon's. The SDK (Phase 7) lets any
+Node.js application send logs by installing @incidentai/sdk.
+Same positioning as Grafana (open source Datadog alternative) or
+Sentry (open source error tracking) — same category, self-hosted
+open source model, different price point.
+
+## Problems Faced
+- Spring Boot 3.2.0 no longer supported by Spring Initializr
+  (minimum is now 3.5.0)
+- Tests failed with IllegalState/Failed to load ApplicationContext
+  because IncidentServiceApplicationTests missing @ActiveProfiles
+- Auth service tests failed after adding organizationId to
+  UserRecord (TypeScript required the new field in all mock objects)
+- Gateway middleware TypeScript error: organizationId not in
+  decoded type
+
+## How I Solved Them
+- Changed bootVersion to 3.5.0 in Spring Initializr curl command
+- Added @ActiveProfiles("test") to IncidentServiceApplicationTests
+  so it uses H2 config instead of PostgreSQL
+- Added organizationId: 'org_default' to mockUserRecord in
+  fixtures.ts — all other mocks inherit it via spread operator
+- Added organizationId?: string to the decoded type assertion
+  in gateway auth middleware
+
+## Test Results
+
+Auth Service:     96 tests, 100% coverage
+API Gateway:      12 tests, all passing
+Incident Service: 24 tests, BUILD SUCCESS
+
+9 integration tests
+11 unit tests
+4 repository slice tests
+1 context load test
+
+## Commands Used
+```bash
+curl https://start.spring.io/starter.zip -d bootVersion=3.5.0 ...
+unzip incident-service.zip
+./mvnw clean package -DskipTests
+./mvnw test
+./mvnw spring-boot:run
+git add .
+git commit -m "feat(incident): add Spring Boot Incident Service with multi-tenant isolation and integration tests"
+git commit -m "test(incident): add unit tests for service layer and repository tests — 24 tests passing"
+git commit -m "feat(auth): add organizationId to UserRecord, JWT payload, and fixtures"
+git commit -m "feat(gateway): forward x-organization-id header for multi-tenancy"
+git commit -m "docs(decisions): add ADR-007 multi-tenancy strategy"
+git push origin feature/incident-service
+```
+
+## Git Branch
+feature/incident-service
+
+## Next Step
+Phase 5 — Log Service (Django/Python).
+Build log ingestion, MongoDB storage, OpenSearch indexing,
+critical event detection, and RabbitMQ event publishing.
+First Python service. First NoSQL database (MongoDB).
