@@ -2,6 +2,7 @@ package com.incidentai.incident.controller;
 
 import com.incidentai.incident.dto.*;
 import com.incidentai.incident.service.IncidentService;
+import com.incidentai.incident.dto.TimelineResponse;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
@@ -66,6 +67,14 @@ public class IncidentController {
             @RequestHeader("x-organization-id") String organizationId) {
         incidentService.deleteIncident(id, organizationId);
         return ResponseEntity.noContent().build();
+    }
+
+    @GetMapping("/{id}/timeline")
+    public ResponseEntity<List<TimelineResponse>> getTimeline(
+            @PathVariable String id,
+            @RequestHeader("x-organization-id") String organizationId) {
+        return ResponseEntity.ok(
+            incidentService.getTimeline(id, organizationId));
     }
 
     @GetMapping("/health")

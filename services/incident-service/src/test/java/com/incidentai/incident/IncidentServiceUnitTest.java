@@ -3,10 +3,13 @@ package com.incidentai.incident;
 import com.incidentai.incident.dto.AssignIncidentRequest;
 import com.incidentai.incident.dto.CreateIncidentRequest;
 import com.incidentai.incident.dto.IncidentResponse;
+import com.incidentai.incident.dto.TimelineResponse;
 import com.incidentai.incident.dto.UpdateStatusRequest;
 import com.incidentai.incident.entity.Incident;
+import com.incidentai.incident.entity.IncidentTimeline;
 import com.incidentai.incident.exception.IncidentNotFoundException;
 import com.incidentai.incident.repository.IncidentRepository;
+import com.incidentai.incident.repository.IncidentTimelineRepository;
 import com.incidentai.incident.service.IncidentService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -28,6 +31,9 @@ class IncidentServiceUnitTest {
 
     @Mock
     private IncidentRepository incidentRepository;
+
+    @Mock
+    private IncidentTimelineRepository timelineRepository;
 
     @InjectMocks
     private IncidentService incidentService;
@@ -54,6 +60,8 @@ class IncidentServiceUnitTest {
 
         when(incidentRepository.save(any(Incident.class)))
                 .thenReturn(mockIncident);
+        when(timelineRepository.save(any(IncidentTimeline.class)))
+                .thenReturn(new IncidentTimeline());
 
         IncidentResponse response = incidentService
                 .createIncident(request, "user_123", "org_default");
@@ -62,6 +70,7 @@ class IncidentServiceUnitTest {
         assertThat(response.getTitle()).isEqualTo("DB timeout");
         assertThat(response.getOrganizationId()).isEqualTo("org_default");
         verify(incidentRepository, times(1)).save(any(Incident.class));
+        verify(timelineRepository, times(1)).save(any(IncidentTimeline.class));
     }
 
     @Test
@@ -72,6 +81,8 @@ class IncidentServiceUnitTest {
 
         when(incidentRepository.save(any(Incident.class)))
                 .thenAnswer(invocation -> invocation.getArgument(0));
+        when(timelineRepository.save(any(IncidentTimeline.class)))
+                .thenReturn(new IncidentTimeline());
 
         IncidentResponse response = incidentService
                 .createIncident(request, "user_123", "org_abc");
@@ -144,12 +155,15 @@ class IncidentServiceUnitTest {
                 .thenReturn(Optional.of(mockIncident));
         when(incidentRepository.save(any(Incident.class)))
                 .thenReturn(updated);
+        when(timelineRepository.save(any(IncidentTimeline.class)))
+                .thenReturn(new IncidentTimeline());
 
         IncidentResponse response = incidentService
                 .updateStatus("incident_123", request, "org_default");
 
         assertThat(response.getStatus())
                 .isEqualTo(Incident.Status.INVESTIGATING);
+        verify(timelineRepository).save(any(IncidentTimeline.class));
     }
 
     @Test
@@ -185,11 +199,14 @@ class IncidentServiceUnitTest {
                 .thenReturn(Optional.of(mockIncident));
         when(incidentRepository.save(any(Incident.class)))
                 .thenReturn(assigned);
+        when(timelineRepository.save(any(IncidentTimeline.class)))
+                .thenReturn(new IncidentTimeline());
 
         IncidentResponse response = incidentService
                 .assignIncident("incident_123", request, "org_default");
 
         assertThat(response.getAssignedTo()).isEqualTo("user_456");
+        verify(timelineRepository).save(any(IncidentTimeline.class));
     }
 
     @Test
@@ -201,6 +218,7 @@ class IncidentServiceUnitTest {
         incidentService.deleteIncident("incident_123", "org_default");
 
         verify(incidentRepository).deleteById("incident_123");
+        verify(timelineRepository, never()).save(any());
     }
 
     @Test
@@ -213,5 +231,30 @@ class IncidentServiceUnitTest {
                 .isInstanceOf(IncidentNotFoundException.class);
 
         verify(incidentRepository, never()).deleteById(any());
+    }
+
+    @Test
+    void shouldReturnTimelineForIncident() {
+        IncidentTimeline entry = IncidentTimeline.builder()
+                .id("timeline_1")
+                .incidentId("incident_123")
+                .action("INCIDENT_CREATED")
+                .performedBy("user_123")
+                .organizationId("org_default")
+                .build();
+
+        when(incidentRepository.findById("incident_123"))
+                .thenReturn(Optional.of(mockIncident));
+        when(timelineRepository
+                .findByIncidentIdAndOrganizationIdOrderByCreatedAtAsc(
+                        "incident_123", "org_default"))
+                .thenReturn(List.of(entry));
+
+        List<TimelineResponse> timeline = incidentService
+                .getTimeline("incident_123", "org_default");
+
+        assertThat(timeline).hasSize(1);
+        assertThat(timeline.get(0).getAction())
+                .isEqualTo("INCIDENT_CREATED");
     }
 }
