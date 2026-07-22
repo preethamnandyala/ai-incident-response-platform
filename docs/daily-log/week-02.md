@@ -747,3 +747,280 @@ Phase 5 — Log Service (Django/Python).
 Build log ingestion, MongoDB storage, OpenSearch indexing,
 critical event detection, and RabbitMQ event publishing.
 First Python service. First NoSQL database (MongoDB).
+
+
+---
+
+# Day 12 — 9 June 2026
+
+## Goal
+Complete Phase 5 — Log Service (Django/Python).
+Also complete missing Incident Service timeline feature.
+Ensure both services have full layered architecture and all APIs.
+
+## Work Completed
+
+### Log Service (Django)
+- Created virtual environment and activated it
+- Installed: django, djangorestframework, pymongo,
+  django-environ, pytest, pytest-django
+- Generated Django project with django-admin startproject
+- Created logs app with python manage.py startapp logs
+- Configured settings.py:
+  removed admin app, added django.contrib.auth and contenttypes,
+  configured SQLite for Django internals,
+  configured MongoDB via MONGODB_URI and MONGODB_NAME,
+  disabled DRF authentication (DEFAULT_AUTHENTICATION_CLASSES: []),
+  set UNAUTHENTICATED_USER: None
+- Created logs/mongodb.py — singleton MongoDB connection
+  with lazy initialization (function not module-level variable)
+- Created logs/repository.py — LogRepository with:
+  insert_log, find_logs, find_by_id, insert_many_logs,
+  get_distinct_services
+- Created logs/service.py — LogService with:
+  create_log, create_bulk_logs, get_logs, get_log_by_id,
+  get_services, _handle_critical_log, _serialize_log
+- Created logs/serializers.py:
+  LogCreateSerializer, LogFilterSerializer, BulkLogCreateSerializer
+- Created logs/views.py:
+  LogListCreateView (POST + GET), LogBulkCreateView,
+  LogDetailView, LogServicesView, LogSearchView, health_check
+- Created logs/urls.py with all 7 routes
+- Created log_service/urls.py root URL config
+- Created .env with SECRET_KEY, MONGODB_URI, MONGODB_NAME, PORT
+- Added venv/, __pycache__/, *.pyc, .env, db.sqlite3 to .gitignore
+- Ran python manage.py migrate (creates SQLite tables for Django auth)
+- Wrote 20 tests:
+  6 serializer tests, 5 service tests, 4 view tests,
+  2 detail view tests, 2 search tests, 1 health check test
+- Verified: health check 200, invalid level 400,
+  POST without MongoDB 500 (expected — no database yet)
+
+### Incident Service (Spring Boot)
+- Added IncidentTimeline entity:
+  id, incidentId, action, performedBy, details,
+  organizationId, createdAt
+- Added IncidentTimelineRepository with derived query method:
+  findByIncidentIdAndOrganizationIdOrderByCreatedAtAsc
+- Added TimelineResponse DTO with static from() factory
+- Updated IncidentService to record timeline entries:
+  INCIDENT_CREATED on createIncident
+  STATUS_CHANGED on updateStatus
+  INCIDENT_ASSIGNED on assignIncident
+- Added getTimeline() method to service
+- Added GET /api/incidents/:id/timeline endpoint to controller
+- Fixed UnnecessaryStubbingException by moving timeline stubs
+  from @BeforeEach to individual tests that need them
+- Updated IncidentServiceUnitTest — 12 unit tests now passing
+- All 26 tests passing: BUILD SUCCESS
+
+## What I Learned
+
+### Django project structure vs Express
+Django has two levels: Project (log_service/) and App (logs/).
+Project = overall configuration (settings, root URLs, wsgi).
+App = self-contained feature module (views, urls, serializers, tests).
+One project can contain many apps. Equivalent Express mapping:
+app.ts → settings.py + log_service/urls.py
+routes/ → logs/urls.py
+controllers/ → logs/views.py
+validators/ → logs/serializers.py
+repositories/ → logs/repository.py (custom, not Django ORM)
+
+### manage.py — Django CLI tool
+Django's command line interface. Equivalent of npm run scripts.
+python manage.py runserver 3003 → start dev server on port 3003
+python manage.py check          → validate configuration
+python manage.py migrate        → run database migrations
+python manage.py test logs      → run tests for logs app
+Never edit this file — just run commands through it.
+
+### Virtual environment (venv)
+Isolated Python installation per project. Prevents package
+version conflicts between projects. Created with:
+python -m venv venv
+Activated with: source venv/Scripts/activate
+(venv) appears in prompt when active.
+requirements.txt committed (not venv folder) — equivalent
+to package.json listing dependencies.
+deactivate exits the virtual environment.
+
+### MongoDB collection vs PostgreSQL table
+PostgreSQL: Database → Tables → Rows (fixed schema)
+MongoDB: Database → Collections → Documents (flexible schema)
+Collection is a bucket for documents. No fixed schema — each
+document can have completely different fields. Perfect for logs
+because payment-service, auth-service, and database-service
+all send different metadata fields.
+
+### Why lazy initialization for MongoDB connection
+Module-level code runs immediately when file is imported.
+If MongoDB is unavailable at startup, module-level connection
+crashes the entire app before it starts.
+Function-level code runs only when called — first request
+triggers the connection. App starts successfully even if
+MongoDB is down. Only the specific request that needs MongoDB
+fails, not the entire service. Health check still responds.
+
+### DRF Serializers vs Express validators
+Both validate incoming request data. DRF serializers also:
+→ Convert Python objects to JSON (serialization)
+→ Convert JSON to Python objects (deserialization)
+→ Support nested validation with ListField and DictField
+serializer.is_valid() → runs validation
+serializer.validated_data → clean, safe data
+serializer.errors → field-level error messages
+
+### Why we disabled DRF authentication
+DRF's default auth system checks for Django session cookies
+and Basic auth headers. It tries to load django.contrib.auth
+models. Our Log Service does not use Django's user system —
+identity comes from x-user-id and x-organization-id headers
+set by the API Gateway after JWT verification. DRF auth
+would crash trying to find users in a table we do not use.
+Solution: DEFAULT_AUTHENTICATION_CLASSES: [], UNAUTHENTICATED_USER: None
+
+### Why we needed SQLite even though we use MongoDB
+Django requires a database backend to start — even for internal
+operations like running tests. django.contrib.auth and
+django.contrib.contenttypes need tables to exist. SQLite gives
+Django what it needs for internals. MongoDB handles our actual
+log data via pymongo directly. SQLite tables sit unused for
+our business logic — only Django's internal framework uses them.
+python manage.py migrate creates these internal tables.
+
+### Python mocking vs Jest mocking
+JavaScript: jest.mock('../mongodb', () => ({ getCollection: jest.fn() }))
+Python:     @patch('logs.views.get_logs_collection')
+            def test_something(self, mock_get_collection):
+Both replace real dependencies with fakes during tests.
+MagicMock() in Python = jest.fn() in JavaScript.
+mock.return_value = MagicMock() configures what the mock returns.
+@patch decorator applies the mock only for that test's duration.
+
+### HTTP headers in Django test client
+Django test client reads headers with HTTP_ prefix and
+uppercase with underscores replacing hyphens:
+X-Organization-Id → HTTP_X_ORGANIZATION_ID
+** unpacks a dict as keyword arguments to a function call.
+
+### auto-detection pipeline
+CRITICAL log arrives → Log Service detects level
+→ publishes critical.log.detected to RabbitMQ (Phase 6)
+→ Incident Service creates incident automatically
+→ Notification Service alerts the team
+→ AI Service analyzes logs and suggests root cause
+→ Dashboard shows complete picture to developer
+Not just storage — active monitoring that creates incidents
+and sends alerts without human intervention.
+
+### metadata field for flexible log structure
+Different applications send different fields.
+All application-specific data goes inside metadata dict.
+DictField with JSONField children accepts any JSON structure.
+SDK wraps application data into metadata automatically.
+MongoDB stores it as-is — no schema changes needed when
+new applications are onboarded.
+
+### Mockito UnnecessaryStubbingException
+Mockito strict mode fails if you set up a stub in @BeforeEach
+but a specific test does not call that method.
+Solution: only stub in the specific tests that use it.
+This is good practice — precise tests, no false assumptions.
+Tests that do not call timelineRepository.save() should not
+stub it — doing so suggests the test setup is wrong.
+
+### Incident timeline
+Every action on an incident is recorded:
+INCIDENT_CREATED — when incident is created
+STATUS_CHANGED — {"from": "OPEN", "to": "INVESTIGATING"}
+INCIDENT_ASSIGNED — {"assignedTo": "user_456"}
+Stored in incident_timelines table, scoped by organizationId.
+Gives developers complete audit trail of what happened and when.
+GET /api/incidents/:id/timeline returns entries in chronological order.
+
+### Framework selection reasoning
+Express: minimal, full control, good for API Gateway and Auth
+Spring Boot: enterprise Java, JPA, multi-threaded, good for
+             complex domain (Incident Service)
+Django: batteries included, fast development, good for
+        Log Service with complex filtering and aggregation
+FastAPI: async Python, good for AI Service (OpenAI calls)
+Flask: minimal Python, good for simple Notification Service
+Each chosen for specific reasons — not randomly.
+
+## Problems Faced
+- admin URL in urls.py after removing django.contrib.admin
+  from INSTALLED_APPS
+- RuntimeError: django.contrib.auth.models.Permission not in
+  INSTALLED_APPS (DRF tries to load auth models internally)
+- ImportError: BulkLogCreateSerializer not in serializers.py
+  (updated views.py before adding the serializer class)
+- UnnecessaryStubbingException in Mockito (timeline stub in
+  @BeforeEach used by some tests but not all)
+- venv activated when trying to run Maven (different terminal
+  session, needed to deactivate first)
+
+## How I Solved Them
+- Replaced admin URL with just our logs routes in urls.py
+- Added django.contrib.auth and django.contrib.contenttypes
+  back to INSTALLED_APPS, ran migrate to create their tables
+- Added BulkLogCreateSerializer class to serializers.py
+- Moved timelineRepository.save() stub from @BeforeEach to
+  individual test methods that actually call it
+- Ran deactivate to exit venv, then cd to incident-service
+
+## Test Results
+
+Log Service: 20 tests, 0 failures, OK in 0.032s
+Incident Service: 26 tests, 0 failures, BUILD SUCCESS
+
+9 integration tests (@SpringBootTest)
+12 unit tests (@ExtendWith MockitoExtension)
+4 repository tests (@DataJpaTest)
+1 context load test
+
+## APIs Built
+
+Log Service (Django):
+POST /api/logs/ → ingest single log
+POST /api/logs/bulk/ → ingest multiple logs
+GET /api/logs/ → list with filters and pagination
+GET /api/logs/search/ → full-text search placeholder
+GET /api/logs/services/ → list all services
+GET /api/logs/health/ → health check
+GET /api/logs/<id>/ → get single log by ID
+
+Incident Service (Spring Boot) — added:
+GET /api/incidents/:id/timeline → incident timeline
+
+## Commands Used
+```bash
+python -m venv venv
+source venv/Scripts/activate
+pip install django djangorestframework pymongo django-environ pytest pytest-django
+pip freeze > requirements.txt
+django-admin startproject log_service .
+python manage.py startapp logs
+python manage.py check
+python manage.py migrate
+python manage.py test logs
+python manage.py runserver 3003
+deactivate
+cd ../incident-service
+./mvnw test
+git add .
+git commit -m "feat(log): complete Phase 5 — Django Log Service with full layered architecture, all APIs, 20 tests"
+git commit -m "feat(incident): add timeline entity, repository, service methods, controller endpoint — 26 tests passing"
+git push origin feature/log-service
+```
+
+## Git Branch
+feature/log-service
+
+## Next Step
+Phase 6 — RabbitMQ event system.
+Replace print statements in Log Service with real event publishing.
+critical.log.detected event → Incident Service auto-creates incident.
+incident.created event → AI Service and Notification Service consume.
+This is the event-driven architecture that connects all services.
