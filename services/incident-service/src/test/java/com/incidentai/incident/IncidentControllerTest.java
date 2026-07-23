@@ -167,6 +167,25 @@ class IncidentControllerTest {
     }
 
     @Test
+    void shouldReturnTimelineForIncident() throws Exception {
+    // Create incident first
+    Incident incident = Incident.builder()
+            .title("Test incident")
+            .severity(Incident.Severity.HIGH)
+            .status(Incident.Status.OPEN)
+            .createdBy("user_123")
+            .organizationId("org_default")
+            .build();
+    Incident saved = incidentRepository.save(incident);
+
+    // Get timeline
+    mockMvc.perform(get("/api/incidents/" + saved.getId() + "/timeline")
+            .header("x-organization-id", "org_default"))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$").isArray());
+    }
+
+    @Test
     void shouldReturnHealthCheck() throws Exception {
         mockMvc.perform(get("/api/incidents/health"))
             .andExpect(status().isOk());

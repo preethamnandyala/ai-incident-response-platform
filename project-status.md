@@ -1,11 +1,11 @@
 # Project Status
 
-Date: 8 June 2026
-Current phase: Phase 5 — Log Service
+Date: 9 June 2026
+Current phase: Phase 6 — RabbitMQ
 Completed phases: Phase 0, Phase 1a, Phase 1b, Phase 1c,
-                  Phase 2, Phase 3, Phase 4
+                  Phase 2, Phase 3, Phase 4, Phase 5
 In progress: Not started
-Last commit: docs(daily-log): add day 11 session log
+Last commit: docs(daily-log): add day 12 session log
 Decisions made:
   ADR-001 — use monorepo structure
   ADR-002 — auth service phase split
