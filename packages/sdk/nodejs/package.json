@@ -1,0 +1,30 @@
+{
+  "name": "@incidentai/sdk",
+  "version": "1.0.0",
+  "description": "IncidentAI SDK for Node.js — send logs and monitor your applications",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "build": "tsc",
+    "test": "jest --coverage",
+    "dev": "tsc --watch"
+  },
+  "keywords": [
+    "monitoring",
+    "logging",
+    "incidents",
+    "observability"
+  ],
+  "author": "IncidentAI",
+  "license": "MIT",
+  "dependencies": {
+    "axios": "^1.18.1"
+  },
+  "devDependencies": {
+    "@types/jest": "^30.0.0",
+    "@types/node": "^26.1.1",
+    "jest": "^30.4.2",
+    "ts-jest": "^29.4.12",
+    "typescript": "^5.4.5"
+  }
+}
