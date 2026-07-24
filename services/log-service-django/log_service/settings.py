@@ -65,3 +65,9 @@ STATIC_URL = '/static/'
 
 # Default auto field
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
+
+# RabbitMQ
+RABBITMQ_HOST = env('RABBITMQ_HOST', default='localhost')
+RABBITMQ_PORT = env.int('RABBITMQ_PORT', default=5672)
+RABBITMQ_USER = env('RABBITMQ_USER', default='guest')
+RABBITMQ_PASSWORD = env('RABBITMQ_PASSWORD', default='guest')

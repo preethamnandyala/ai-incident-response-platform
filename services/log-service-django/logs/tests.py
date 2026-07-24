@@ -99,8 +99,9 @@ class LogServiceTests(TestCase):
                 organization_id='org_default',
                 user_id='user_123'
             )
+            
             mock_handler.assert_called_once_with(
-                'payment-service', 'System down', 'org_default'
+                'payment-service', 'System down', 'org_default', 'abc123'
             )
 
     @patch('logs.service.LogRepository')
