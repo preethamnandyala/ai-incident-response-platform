@@ -1024,3 +1024,325 @@ Replace print statements in Log Service with real event publishing.
 critical.log.detected event → Incident Service auto-creates incident.
 incident.created event → AI Service and Notification Service consume.
 This is the event-driven architecture that connects all services.
+
+---
+
+# Day 13 — 10 June 2026
+
+## Goal
+Build Phase 6 — RabbitMQ event system. Connect Log Service
+and Incident Service so critical logs automatically trigger
+incident creation without direct HTTP calls between services.
+
+## Work Completed
+
+### Infrastructure
+- Started RabbitMQ via Docker:
+  docker run -d --name rabbitmq -p 5672:5672 -p 15672:15672
+  rabbitmq:3-management
+- Started MongoDB via Docker for end-to-end testing:
+  docker run -d --name mongodb -p 27017:27017 mongo:7
+- Started PostgreSQL via Docker for end-to-end testing:
+  docker run -d --name postgres -e POSTGRES_PASSWORD=postgres
+  -e POSTGRES_DB=incident_platform -p 5432:5432 postgres:15
+- Verified RabbitMQ management UI at http://localhost:15672
+
+### Incident Service (Spring Boot) — RabbitMQ
+- Added spring-boot-starter-amqp to pom.xml
+- Created RabbitMQConfig.java:
+  TopicExchange 'incident_platform' (durable)
+  Queue 'log.critical.queue' (durable)
+  Queue 'incident.created.queue' (durable)
+  Binding: critical.log.detected → log.critical.queue
+  Binding: incident.created → incident.created.queue
+  Jackson2JsonMessageConverter for JSON serialization
+  RabbitTemplate with JSON converter
+- Created EventPublisher.java:
+  publishIncidentCreated() — publishes incident.created event
+  to exchange with routing key 'incident.created'
+- Created EventConsumer.java:
+  @RabbitListener on log.critical.queue
+  handleCriticalLog() — reads event, creates incident automatically,
+  records timeline, publishes incident.created event
+- Updated application.properties with RabbitMQ and PostgreSQL config
+
+### Log Service (Django) — RabbitMQ
+- Installed pika 1.4.2 (Python RabbitMQ client)
+- Updated requirements.txt
+- Added RabbitMQ config to settings.py:
+  RABBITMQ_HOST, RABBITMQ_PORT, RABBITMQ_USER, RABBITMQ_PASSWORD
+- Added RabbitMQ env vars to .env
+- Created logs/events.py:
+  get_rabbitmq_connection() — creates pika connection
+  publish_critical_log_detected() — connects, declares exchange,
+  publishes event with delivery_mode=2 (persistent), closes connection
+- Updated logs/service.py:
+  replaced print statements in _handle_critical_log with real
+  RabbitMQ publish via publish_critical_log_detected()
+  added log_id parameter to _handle_critical_log
+  added proper logging with logger.critical and logger.info
+- Fixed ObjectId serialization bug:
+  log_document.pop('_id', None) after MongoDB insert
+- Fixed test: updated assert_called_once_with to include log_id
+
+### End-to-end test — PASSED
+Full pipeline verified with all infrastructure running:
+1. curl POST /api/logs/ with CRITICAL level
+2. Log Service saved to MongoDB
+3. Log Service published critical.log.detected to RabbitMQ
+4. Message sat in log.critical.queue
+5. Incident Service started, connected to RabbitMQ
+6. Consumed both queued messages immediately
+7. Auto-created 2 incidents in PostgreSQL
+8. Recorded timeline entries
+9. Published incident.created events
+10. curl GET /api/incidents returned both auto-created incidents
+
+curl response confirmed:
+[
+  { "title": "CRITICAL: Database connection pool exhausted
+    in payment-service", "severity": "CRITICAL",
+    "status": "OPEN", "createdBy": "system" },
+  { ... second incident ... }
+]
+
+## What I Learned
+
+### Why RabbitMQ instead of direct HTTP calls
+Five problems with direct HTTP calls between services:
+1. Tight coupling — Log Service must know about every other service
+2. Cascading failures — if Incident Service is down, Log Service fails
+3. Slow responses — client waits for all downstream calls to complete
+4. Adding services requires modifying Log Service code
+5. No retry mechanism — failed calls are lost forever
+RabbitMQ solves all five: loose coupling, fault isolation,
+async processing, open/closed principle, guaranteed delivery.
+
+### RabbitMQ vs Kafka — when to use which
+RabbitMQ: task queues, message deleted after consumption,
+push-based, best for tens of thousands of messages/day,
+simple routing, our use case (create incident, send notification).
+Kafka: event streaming, message kept for days/weeks,
+pull-based, best for millions of messages/second, replay events,
+multiple independent consumers, analytics pipelines.
+We chose RabbitMQ because our use case is task-based processing,
+not event streaming. EventPublisher abstraction means we can
+switch to Kafka by changing one file per service.
+
+### Exchange, Queue, Binding
+Exchange: routing hub — publishers send to exchange, never directly
+          to queues. Topic exchange routes by routing key pattern.
+Queue: message storage — messages sit here until consumed.
+       Durable queues survive RabbitMQ restarts.
+Binding: rule connecting exchange to queue.
+         'critical.log.detected' routing key → log.critical.queue
+
+### @RabbitListener annotation
+Spring AMQP annotation that starts a background listener thread.
+When a message arrives in the queue, Spring automatically calls
+the annotated method and converts JSON to Java Map.
+Equivalent to: channel.consume('queue', (msg) => handleMsg(msg))
+The main application keeps running while this waits for messages.
+
+### delivery_mode=2 — persistent messages
+delivery_mode=1: transient — stored in memory, lost on restart
+delivery_mode=2: persistent — written to disk, survives restart
+Combined with durable queue = guaranteed delivery.
+Critical for incident events — losing a CRITICAL log event
+would mean an incident is never created.
+
+### Jackson2JsonMessageConverter
+Converts Java objects to JSON automatically when publishing.
+Converts JSON back to Java objects when consuming.
+Without it: raw bytes — manual serialization required.
+With it: publish a Map, receive a Map — no serialization code needed.
+
+### pika — Python RabbitMQ client
+BlockingConnection creates a synchronous connection.
+channel.exchange_declare ensures exchange exists before publishing.
+channel.basic_publish sends the message with routing key.
+Pika connects, publishes, disconnects — no persistent connection.
+This is correct for a web service — connections are cheap,
+keeping them open wastes resources.
+
+### RabbitMQ message acknowledgement
+When EventConsumer processes a message successfully, Spring AMQP
+automatically sends an acknowledgement to RabbitMQ.
+RabbitMQ then deletes the message from the queue.
+If processing fails and exception is re-thrown, message goes
+back to queue for retry. We catch exceptions to prevent
+infinite retry loops when downstream services are unavailable.
+
+### ObjectId not JSON serializable
+MongoDB stores _id as ObjectId (binary type, not string).
+When returning the log document as JSON, ObjectId cannot be
+serialized by Python's json module.
+Fix: log_document.pop('_id', None) removes _id before returning,
+and log_document['id'] = log_id adds the string version.
+
+### Messages queue when consumer is offline
+Two CRITICAL logs sent before Incident Service started.
+Messages sat in log.critical.queue.
+When Incident Service started — consumed both immediately.
+This is guaranteed delivery — messages are never lost even if
+the consumer is temporarily offline. This is the core value
+of RabbitMQ over direct HTTP calls.
+
+### The event chain
+critical.log.detected → Incident Service creates incident
+                      → publishes incident.created
+incident.created     → AI Service will analyze (Phase 8)
+                      → Notification Service will alert (Phase 9)
+Each phase adds a new consumer without modifying existing services.
+
+## Problems Faced
+- pom.xml malformed due to backtick character when pasting dependency
+- PostgreSQL authentication failed: SCRAM-based auth, no password
+- ObjectId not JSON serializable when returning log response
+- Test failure: assert_called_once_with missing log_id argument
+- MongoDB not running when first testing CRITICAL log endpoint
+
+## How I Solved Them
+- Opened pom.xml in VS Code, removed backtick character, recompiled
+- Added spring.datasource.password=postgres to application.properties
+- Added log_document.pop('_id', None) in service.py create_log
+- Updated test assertion to include 'abc123' as fourth argument
+- Started MongoDB with Docker: docker run -d mongo:7 -p 27017:27017
+
+## Test Results
+
+Log Service: 20 tests passing (after fixing assert signature)
+Incident Service: 26 tests passing — BUILD SUCCESS
+RabbitMQ connection verified in test output:
+"Created new connection: amqp://guest@127.0.0.1:5672/"
+End-to-end: FULL PIPELINE VERIFIED
+2 auto-created incidents confirmed via GET /api/incidents
+
+## Complete file flow (end-to-end)
+
+curl POST /api/logs/
+→ log_service/urls.py
+→ logs/urls.py
+→ logs/views.py (LogListCreateView.post)
+→ logs/serializers.py (LogCreateSerializer.is_valid)
+→ logs/service.py (LogService.create_log)
+→ logs/repository.py (LogRepository.insert_log)
+→ logs/mongodb.py (get_logs_collection)
+→ MongoDB (document inserted)
+→ logs/service.py (_handle_critical_log)
+→ logs/events.py (publish_critical_log_detected)
+→ RabbitMQ log.critical.queue
+→ incident-service/config/RabbitMQConfig.java
+→ incident-service/events/EventConsumer.java (handleCriticalLog)
+→ incident-service/service/IncidentService.java (createIncident)
+→ incident-service/repository/IncidentRepository.java (save)
+→ PostgreSQL incidents table
+→ incident-service/repository/IncidentTimelineRepository.java (save)
+→ PostgreSQL incident_timelines table
+→ incident-service/events/EventPublisher.java (publishIncidentCreated)
+→ RabbitMQ incident.created.queue
+(waiting for Phase 8 AI Service and Phase 9 Notification Service)
+
+
+## Commands Used
+```bash
+docker run -d --name rabbitmq -p 5672:5672 -p 15672:15672 rabbitmq:3-management
+docker run -d --name mongodb -p 27017:27017 mongo:7
+docker run -d --name postgres -e POSTGRES_USER=postgres
+  -e POSTGRES_PASSWORD=postgres -e POSTGRES_DB=incident_platform
+  -p 5432:5432 postgres:15
+pip install pika
+pip freeze > requirements.txt
+python manage.py test logs
+python manage.py runserver 3003
+./mvnw compile
+./mvnw test
+./mvnw spring-boot:run
+docker stop mongodb postgres rabbitmq
+git add .
+git commit -m "feat(incident): add RabbitMQ consumer — auto-creates incident on critical.log.detected"
+git commit -m "feat(log): add RabbitMQ publisher — publishes critical.log.detected on CRITICAL log"
+git commit -m "config(incident): add PostgreSQL password and RabbitMQ connection properties"
+git push origin feature/rabbitmq
+```
+
+## Git Branch
+feature/rabbitmq
+
+## Next Step
+Phase 7 — Demo Applications.
+Build payment-demo, user-demo, inventory-demo.
+Each uses @incidentai/sdk to send logs automatically.
+Build the SDK in packages/sdk/nodejs/.
+Demo apps generate realistic logs including CRITICAL events
+to prove the full pipeline end to end.
+
+Commit the daily log:
+
+bash
+git add .
+git commit -m "docs(daily-log): add day 13 session log"
+git push origin feature/rabbitmq
+
+Update project-status.md:
+
+markdown
+# Project Status
+
+Date: 10 June 2026
+Current phase: Phase 7 — Demo Applications
+Completed phases: Phase 0, Phase 1a, Phase 1b, Phase 1c,
+                  Phase 2, Phase 3, Phase 4, Phase 5, Phase 6
+In progress: Not started
+Last commit: docs(daily-log): add day 13 session log
+Decisions made:
+  ADR-001 — use monorepo structure
+  ADR-002 — auth service phase split
+  ADR-003 — separate password service
+  ADR-004 — email verification design
+  ADR-005 — OAuth2 duplicate email handling
+  ADR-006 — secrets management strategy
+  ADR-007 — multi-tenancy strategy
+Blockers: none
+My biggest confusion right now: none
+bash
+git add .
+git commit -m "docs(status): update project status — Phase 6 complete"
+git push origin feature/rabbitmq
+
+Then open PR feature/rabbitmq → develop, self-review, merge.
+
+See you at Session 14 for Phase 7 — Demo Applications and SDK.
+
+## Commands Used
+```bash
+docker run -d --name rabbitmq -p 5672:5672 -p 15672:15672 rabbitmq:3-management
+docker run -d --name mongodb -p 27017:27017 mongo:7
+docker run -d --name postgres -e POSTGRES_USER=postgres
+  -e POSTGRES_PASSWORD=postgres -e POSTGRES_DB=incident_platform
+  -p 5432:5432 postgres:15
+pip install pika
+pip freeze > requirements.txt
+python manage.py test logs
+python manage.py runserver 3003
+./mvnw compile
+./mvnw test
+./mvnw spring-boot:run
+docker stop mongodb postgres rabbitmq
+git add .
+git commit -m "feat(incident): add RabbitMQ consumer — auto-creates incident on critical.log.detected"
+git commit -m "feat(log): add RabbitMQ publisher — publishes critical.log.detected on CRITICAL log"
+git commit -m "config(incident): add PostgreSQL password and RabbitMQ connection properties"
+git push origin feature/rabbitmq
+```
+
+## Git Branch
+feature/rabbitmq
+
+## Next Step
+Phase 7 — Demo Applications.
+Build payment-demo, user-demo, inventory-demo.
+Each uses @incidentai/sdk to send logs automatically.
+Build the SDK in packages/sdk/nodejs/.
+Demo apps generate realistic logs including CRITICAL events
+to prove the full pipeline end to end.

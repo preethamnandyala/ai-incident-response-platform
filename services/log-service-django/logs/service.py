@@ -1,5 +1,8 @@
+import logging
 from datetime import datetime, timezone
 from .repository import LogRepository
+
+logger = logging.getLogger(__name__)
 
 
 class LogService:
@@ -35,11 +38,14 @@ class LogService:
 
         log_id = self.repository.insert_log(log_document)
         log_document['id'] = log_id
+        log_document.pop('_id', None)  # remove ObjectId — not JSON serializable
         log_document['timestamp'] = now.isoformat()
         log_document['created_at'] = now.isoformat()
 
         if level == 'CRITICAL':
-            self._handle_critical_log(service_name, message, organization_id)
+            self._handle_critical_log(
+                service_name, message, organization_id, log_id
+            )
 
         return log_document
 
@@ -120,10 +126,28 @@ class LogService:
         self,
         service_name: str,
         message: str,
-        organization_id: str
+        organization_id: str,
+        log_id: str = ''
     ) -> None:
-        print(f"[CRITICAL] {service_name}: {message}")
-        print(f"[TODO Phase 6] Publish critical.log.detected to RabbitMQ")
+        logger.critical(
+            f"CRITICAL log detected — {service_name}: {message}"
+        )
+
+        from .events import publish_critical_log_detected
+        success = publish_critical_log_detected(
+            log_id=log_id,
+            service_name=service_name,
+            message=message,
+            organization_id=organization_id
+        )
+
+        if success:
+            logger.info("Published critical.log.detected to RabbitMQ")
+        else:
+            logger.error(
+                "Failed to publish to RabbitMQ — "
+                "incident will not be auto-created"
+            )
 
     def _serialize_log(self, log: dict) -> dict:
         log = dict(log)
