@@ -1346,3 +1346,251 @@ Each uses @incidentai/sdk to send logs automatically.
 Build the SDK in packages/sdk/nodejs/.
 Demo apps generate realistic logs including CRITICAL events
 to prove the full pipeline end to end.
+
+
+---
+
+# Day 14 — 11 June 2026
+
+## Goal
+Build Phase 7 — SDK and Demo Applications.
+Create @incidentai/sdk npm package and three demo applications
+that use it to send realistic logs to the platform automatically.
+
+## Work Completed
+
+### @incidentai/sdk (packages/sdk/nodejs/)
+- Created npm package with name @incidentai/sdk
+- Installed: axios, typescript@5.4.5, ts-jest, jest, @types/node
+- Created src/types.ts:
+  LogLevel type (INFO | WARNING | ERROR | CRITICAL)
+  IncidentAIConfig interface (apiKey, service, apiUrl, timeout, silent)
+  LogPayload interface
+  LogResponse interface
+- Created src/logger.ts — IncidentAI class with:
+  constructor creates axios instance with base URL and headers
+  info(), warning(), error(), critical() public methods
+  private log() method builds payload and calls POST /api/logs/ingest
+  silent: true default — never throws, never crashes the app
+  silent: false option — throws errors for testing
+- Created src/index.ts — exports IncidentAI and all types
+- Created jest.config.js
+- Wrote 8 tests in tests/logger.test.ts:
+  should send INFO log with correct payload
+  should send WARNING log with correct payload
+  should send ERROR log with correct payload
+  should send CRITICAL log with correct payload
+  should send empty metadata when not provided
+  should not throw when API call fails in silent mode
+  should throw when API call fails and silent is false
+  should use service name from config in every log
+- Built SDK with npm run build → dist/ folder created
+- Used npm link to make @incidentai/sdk available locally
+  without publishing to npm
+
+### API Gateway — new route
+- Added /api/logs/ingest — public endpoint, no JWT required
+  pathRewrite: { '^/api/logs/ingest': '/api/logs/' }
+  → SDK sends to /api/logs/ingest
+  → Gateway rewrites path to /api/logs/
+  → Log Service receives /api/logs/
+- /api/logs/ still protected with JWT for dashboard use
+- 12 gateway tests still passing after change
+
+### payment-demo (demo-apps/payment-demo/)
+- TypeScript Express app using @incidentai/sdk
+- 5 normal scenarios: payment processed, refund issued,
+  retry attempt, card declined, gateway timeout
+- 3 critical scenarios: database lost, gateway unreachable,
+  fraud detection down
+- Sends log every 5 seconds
+- Sends CRITICAL every 10 iterations (50 seconds)
+- Graceful shutdown on Ctrl+C with process.on('SIGINT')
+- npm link @incidentai/sdk — imports as real npm package
+
+### user-demo (demo-apps/user-demo/)
+- Same structure as payment-demo
+- 5 normal scenarios: login, register, failed attempt,
+  password reset, session expired
+- 3 critical scenarios: auth database lost, JWT secret
+  rotation failed, mass login failures detected
+- Sends log every 7 seconds
+- Sends CRITICAL every 10 iterations (70 seconds)
+
+### inventory-demo (demo-apps/inventory-demo/)
+- Same structure as payment-demo
+- 5 normal scenarios: stock updated, order fulfilled,
+  low stock alert, warehouse sync delayed, stock update failed
+- 3 critical scenarios: database corrupted, warehouse
+  system unreachable, stock mismatch detected
+- Sends log every 9 seconds
+- Sends CRITICAL every 10 iterations (90 seconds)
+
+### End-to-end test — PASSED
+Full pipeline verified with payment-demo running:
+payment-demo → SDK → POST /api/logs/ingest
+→ API Gateway proxies to Log Service
+→ Log Service saves to MongoDB
+→ CRITICAL detected → published to RabbitMQ
+→ Incident Service auto-creates incident in PostgreSQL
+
+## What I Learned
+
+### What an SDK is
+SDK (Software Development Kit) — a package that wraps your API
+and gives developers a simple interface. Without SDK, developers
+write HTTP calls manually in every file. With SDK, they call
+monitor.critical('message') and the SDK handles everything.
+Same concept as Stripe SDK, AWS SDK, Firebase SDK.
+
+### Why silent: true is the default
+The monitoring tool must NEVER crash the application it monitors.
+If our platform goes down temporarily and the SDK throws an error,
+it could crash a payment service mid-transaction. Silent mode
+catches all errors internally and logs nothing — the app keeps
+running. Monitoring should never be more dangerous than the
+problem it is monitoring.
+
+### npm link — local package development
+npm link in the SDK folder creates a global symlink.
+npm link @incidentai/sdk in the demo app creates a local symlink
+pointing to the global one. Demo app imports @incidentai/sdk
+as if it were installed from npm — but actually uses local files.
+This is how monorepo packages work before publishing to npm.
+When we publish: npm publish → npm install @incidentai/sdk →
+import stays identical — zero code changes needed.
+
+### Why separate /api/logs/ingest route
+Applications sending logs use API keys, not JWT.
+JWT is for human users logging into the dashboard.
+Having one /api/logs/ route protected by JWT would block
+all SDK requests (401 Unauthorized).
+Solution: /api/logs/ingest — public, SDK uses this.
+          /api/logs/ — JWT protected, dashboard uses this.
+Post-Phase-14: /api/logs/ingest validates X-Api-Key header
+against api_keys table in database.
+
+### pathRewrite in http-proxy-middleware
+pathRewrite: { '^/api/logs/ingest': '/api/logs/' }
+Gateway receives: POST /api/logs/ingest
+Gateway rewrites to: POST /api/logs/
+Log Service receives: POST /api/logs/
+Log Service does not need to know about /ingest path.
+This is path normalization — external URLs can differ from
+internal service routes.
+
+### Django logging levels
+Django's default logging level is WARNING.
+logger.info() messages are suppressed by default.
+"Published critical.log.detected to RabbitMQ" uses logger.info()
+→ was always working, just not visible.
+Adding LOGGING config with level: DEBUG revealed it.
+Lesson: "it is not working" often means "the logs are hidden".
+
+### Why staggered demo app intervals
+payment-demo:   5 seconds (payments are frequent)
+user-demo:      7 seconds (user events less frequent)
+inventory-demo: 9 seconds (inventory changes slowly)
+Staggered intervals = logs arrive at different times.
+More realistic than three services logging simultaneously.
+Shows the platform handling multiple services independently.
+
+### SDK apiKey as organizationId (temporary)
+Full production: API Gateway queries api_keys table,
+resolves organizationId from key, validates key is active.
+Current approach: apiKey value used directly as organizationId.
+Works for demo apps because we control both sides.
+Post-Phase-14 feature to implement properly.
+X-Api-Key header forwarded to Log Service for future validation.
+
+### Three ways any app can use our platform
+1. SDK (easiest) — npm install @incidentai/sdk, 3 lines of code
+2. Direct HTTP API — any language, just HTTP calls to /api/logs/
+3. Agent (Phase 10) — no code changes, monitors infrastructure
+SDK is Node.js only now. Python/Java SDKs follow identical pattern.
+HTTP API works for every language ever created.
+
+### Open source security model
+/api/logs/ingest is currently public for development.
+Production protections: API key validation (post-Phase-14),
+rate limiting per IP already built (100 req/min),
+input validation rejects invalid payloads,
+organization isolation prevents cross-tenant access,
+storage quotas per organization (post-Phase-14).
+Self-hosted users add their own network controls.
+
+## Problems Faced
+- TypeScript 7 incompatible with ts-jest (same issue as before)
+- Cannot find module @incidentai/sdk (relative path vs npm link)
+- POST /api/logs/ returning 401 (SDK requests need no JWT)
+- Cannot find name process/console/setTimeout in inventory-demo
+  (missing tsconfig.json and @types/node)
+- Published to RabbitMQ message not visible in logs
+  (Django default logging level suppressed INFO messages)
+
+## How I Solved Them
+- Downgraded typescript to 5.4.5 in SDK package.json
+- Used npm link instead of relative path import
+- Added /api/logs/ingest public route to API Gateway
+- Created tsconfig.json with "types": ["node"] in inventory-demo
+- Added LOGGING config to settings.py with level: DEBUG
+  then changed to WARNING/INFO to reduce noise
+
+## Test Results
+
+@incidentai/sdk: 8 tests passing
+API Gateway: 12 tests passing
+End-to-end: FULL PIPELINE VERIFIED
+payment-demo → SDK → Gateway → Log Service → MongoDB
+→ RabbitMQ → Incident Service → PostgreSQL
+CRITICAL auto-incident confirmed
+
+## Commands Used
+```bash
+cd packages/sdk/nodejs
+npm init -y
+npm install axios
+npm install --save-dev typescript@5.4.5 @types/node ts-jest jest @types/jest
+npm test
+npm run build
+npm link
+
+cd demo-apps/payment-demo
+npm init -y
+npm install
+npm link @incidentai/sdk
+npm start
+
+cd demo-apps/user-demo
+npm init -y
+npm install
+npm link @incidentai/sdk
+
+cd demo-apps/inventory-demo
+npm init -y
+npm install
+npm link @incidentai/sdk
+
+cd services/api-gateway-express
+npm test
+
+docker start rabbitmq mongodb postgres
+docker stop rabbitmq mongodb postgres
+
+git add .
+git commit -m "feat(demo): add payment-demo with SDK integration"
+git commit -m "feat(demo): add user-demo and inventory-demo applications"
+git commit -m "feat(demo): complete Phase 7 — SDK, payment-demo, user-demo, inventory-demo"
+git push origin feature/demo-apps
+```
+
+## Git Branch
+feature/demo-apps
+
+## Next Step
+Phase 8 — AI Service (FastAPI/Python).
+Build AI-powered root cause analysis.
+Consumes incident.created events from RabbitMQ.
+Calls OpenAI API to analyze logs and suggest root causes.
+Stores analysis in PostgreSQL with pgvector for similarity search.
+Adds AI analysis tab to incidents in the dashboard.

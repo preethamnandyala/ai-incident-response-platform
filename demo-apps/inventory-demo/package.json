@@ -1,0 +1,16 @@
+{
+  "name": "inventory-demo",
+  "version": "1.0.0",
+  "description": "Demo inventory service that sends logs to IncidentAI platform",
+  "main": "src/index.ts",
+  "scripts": {
+    "start": "ts-node-dev --respawn --transpile-only src/index.ts",
+    "build": "tsc"
+  },
+  "license": "ISC",
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "ts-node-dev": "^2.0.0",
+    "typescript": "^5.4.5"
+  }
+}
