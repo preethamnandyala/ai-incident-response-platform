@@ -15,7 +15,7 @@ app.use(helmet())
 
 // CORS — only the gateway needs this configured
 app.use(cors({
-    origin: process.env.FRONTEND_URL || 'http://localhost:3000',
+    origin: process.env.FRONTEND_URL || 'http://localhost:3006',
     credentials: true
 }))
 
@@ -45,7 +45,19 @@ app.use('/api/auth', createProxyMiddleware({
     target: env.services.auth,
     changeOrigin: true,
     onError: (err: Error, req: any, res: any) => {
-    res.status(502).json({ error: 'X service unavailable' })
+        res.status(502).json({ error: 'Auth service unavailable' })
+    }
+}))
+
+// Log ingestion — public, for SDK and applications
+// Authentication via X-Api-Key (post-Phase-14: validated against api_keys table)
+// Separate from /api/logs which requires JWT for dashboard queries
+app.use('/api/logs/ingest', createProxyMiddleware({
+    target: env.services.log,
+    changeOrigin: true,
+    pathRewrite: { '^/api/logs/ingest': '/api/logs/' },
+    onError: (err: Error, req: any, res: any) => {
+        res.status(502).json({ error: 'Log service unavailable' })
     }
 }))
 
@@ -56,7 +68,7 @@ app.use('/api/incidents',
         target: env.services.incident,
         changeOrigin: true,
         onError: (err: Error, req: any, res: any) => {
-          res.status(502).json({ error: 'X service unavailable' })
+            res.status(502).json({ error: 'Incident service unavailable' })
         }
     })
 )
@@ -67,7 +79,7 @@ app.use('/api/logs',
         target: env.services.log,
         changeOrigin: true,
         onError: (err: Error, req: any, res: any) => {
-          res.status(502).json({ error: 'X service unavailable' })
+            res.status(502).json({ error: 'Log service unavailable' })
         }
     })
 )
@@ -78,7 +90,7 @@ app.use('/api/ai',
         target: env.services.ai,
         changeOrigin: true,
         onError: (err: Error, req: any, res: any) => {
-          res.status(502).json({ error: 'X service unavailable' })
+            res.status(502).json({ error: 'AI service unavailable' })
         }
     })
 )
@@ -89,7 +101,7 @@ app.use('/api/notify',
         target: env.services.notify,
         changeOrigin: true,
         onError: (err: Error, req: any, res: any) => {
-          res.status(502).json({ error: 'X service unavailable' })
+            res.status(502).json({ error: 'Notification service unavailable' })
         }
     })
 )

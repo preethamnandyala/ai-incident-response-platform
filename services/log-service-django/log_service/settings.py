@@ -71,3 +71,24 @@ RABBITMQ_HOST = env('RABBITMQ_HOST', default='localhost')
 RABBITMQ_PORT = env.int('RABBITMQ_PORT', default=5672)
 RABBITMQ_USER = env('RABBITMQ_USER', default='guest')
 RABBITMQ_PASSWORD = env('RABBITMQ_PASSWORD', default='guest')
+
+LOGGING = {
+    'version': 1,
+    'disable_existing_loggers': False,
+    'handlers': {
+        'console': {
+            'class': 'logging.StreamHandler',
+        },
+    },
+    'root': {
+        'handlers': ['console'],
+        'level': 'WARNING',
+    },
+    'loggers': {
+        'logs': {
+            'handlers': ['console'],
+            'level': 'INFO',
+            'propagate': False,
+        }
+    }
+}

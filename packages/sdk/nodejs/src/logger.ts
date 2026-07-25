@@ -69,7 +69,7 @@ export class IncidentAI {
         }
 
         try {
-            await this.client.post<LogResponse>('/api/logs/', payload)
+            await this.client.post<LogResponse>('/api/logs/ingest', payload)
         } catch (error) {
             if (!this.config.silent) {
                 throw error
