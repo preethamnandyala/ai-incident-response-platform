@@ -2119,3 +2119,296 @@ One command: docker-compose up → everything running.
 This replaces manual startup of 7+ terminals.
 Also adds Dockerfiles for each service.
 First time the entire platform runs as a unified system.
+
+---
+
+# Day 17 — 26 July 2026
+
+## Goal
+Build Phase 10 — Docker Compose.
+Containerize all services and run the entire platform
+with a single command. Verify full end-to-end pipeline
+works inside Docker containers.
+
+## Work Completed
+
+### docker-compose.yml (root of monorepo)
+- Removed obsolete `version: '3.9'` attribute
+- Defined private network: incident-platform (bridge driver)
+- Defined named volumes: postgres-data, mongodb-data, redis-data
+- Defined 4 infrastructure services:
+  postgres:15 with healthcheck (pg_isready)
+  mongo:7 with healthcheck (mongosh ping)
+  redis:7-alpine with healthcheck (redis-cli ping)
+  rabbitmq:3-management with healthcheck (rabbitmq-diagnostics ping)
+- Defined 7 application services:
+  auth-service, api-gateway, incident-service, log-service,
+  ai-service, notification-service, web
+- All services on incident-platform network
+- depends_on with condition: service_healthy for databases
+- Environment variables using ${VAR} from .env.docker
+
+### .env.docker (root — not committed)
+- Contains all secrets: JWT secrets, Google OAuth,
+  Anthropic API key, Gmail credentials, Slack webhook
+- Added to .gitignore — verified not committed
+- docker-compose.yml references via ${VAR} syntax
+
+### Dockerfiles created (7 total)
+
+**services/auth-service-express/Dockerfile:**
+FROM node:20-alpine
+npm ci (all deps including TypeScript)
+npm run build (compiles TypeScript)
+npm prune --production (removes dev deps)
+CMD node dist/server.js
+Fixed: tsconfig.json exclude tests/ to prevent TS6059 error
+
+**services/api-gateway-express/Dockerfile:**
+Same pattern as auth-service
+FROM node:20-alpine, npm ci, build, prune
+CMD node dist/server.js
+
+**services/incident-service/Dockerfile:**
+Multi-stage build:
+Stage 1 (build): maven:3.9-eclipse-temurin-17
+  mvn dependency:go-offline
+  mvn package -DskipTests
+Stage 2 (runtime): eclipse-temurin:17-jre-alpine
+  COPY --from=build app.jar
+  CMD java -jar app.jar
+Final image: 180MB instead of 500MB
+
+**services/log-service-django/Dockerfile:**
+FROM python:3.12-slim (changed from 3.11 — Django 6 requires 3.12)
+pip install --no-cache-dir -r requirements.txt
+CMD python manage.py runserver 0.0.0.0:3003
+
+**services/ai-service-fastapi/Dockerfile:**
+FROM python:3.12-slim
+pip install --no-cache-dir -r requirements.txt
+CMD uvicorn app.main:app --host 0.0.0.0 --port 3004
+
+**services/notification-service-flask/Dockerfile:**
+FROM python:3.11-slim
+pip install --no-cache-dir -r requirements.txt
+CMD python app.py
+
+**apps/web-nextjs/Dockerfile:**
+Multi-stage build:
+Stage 1 (build): node:20-alpine, npm ci, npm run build
+Stage 2 (runtime): node:20-alpine
+  COPY .next, node_modules, package.json, public
+  CMD npm start
+Fixed: useSearchParams() wrapped in Suspense boundary
+  Created AuthCallbackContent.tsx separate component
+  page.tsx wraps it with <Suspense fallback={...}>
+
+### .dockerignore files (7 total)
+Node.js services: node_modules, dist, .env, .git, coverage
+Python services: venv, __pycache__, *.pyc, .env, *.db, .git
+Java service: target, .env, .git, *.md
+
+### Build results
+All 7 Docker images built successfully:
+notification-service → 33.7s
+log-service          → 43.3s (after fixing Python 3.11→3.12)
+ai-service           → 60.0s
+incident-service     → 135.4s (Maven multi-stage)
+auth-service         → 75.4s (after fixing tsconfig exclude)
+api-gateway          → 75.4s (built together with auth)
+web                  → 159.1s (after fixing Suspense boundary)
+
+### End-to-end test inside Docker — PASSED
+docker-compose up -d → all 11 containers started
+Health checks verified:
+  localhost:3000/health → API Gateway healthy ✓
+  localhost:3001/health → Auth Service healthy ✓
+  localhost:3002/api/incidents/health → Incident healthy ✓
+  localhost:3003/api/logs/health/ → Log Service healthy ✓
+  localhost:3004/api/ai/health → AI Service healthy ✓
+  localhost:3005/api/notify/health → Notification healthy ✓
+  localhost:3006 → Next.js serving ✓
+
+Full pipeline test:
+curl POST /api/logs/ingest (CRITICAL)
+→ Log Service saved to MongoDB ✓
+→ Published critical.log.detected to RabbitMQ ✓
+→ Incident Service auto-created incident ✓
+→ Incident published incident.created ✓
+→ Notification Service sent email ✓
+→ Notification Service sent Slack ✓
+→ Gmail received ✓
+→ Slack received ✓
+
+## What I Learned
+
+### Why localhost breaks in Docker
+Each container has its own isolated localhost.
+AI Service calling http://localhost:3003 looks for Log Service
+on its OWN localhost — nothing there → connection refused.
+Docker Compose creates a private network where each container
+is reachable by its service name:
+http://log-service:3003 → Docker DNS resolves to container IP
+All inter-service URLs use service names not localhost.
+Environment variables handle this — no code changes needed.
+
+### Docker Image vs Container
+Image: blueprint/recipe, read-only, created by docker build
+Container: running instance of image, created by docker run/up
+Same image can run as many containers simultaneously.
+Images stored locally, deployed to registries (AWS ECR, Docker Hub).
+
+### Why Docker Compose
+Without: 10 terminals, manual startup order, error-prone
+With: docker-compose up → everything starts in correct order
+      healthchecks ensure databases ready before services start
+      One command for entire platform
+
+### Volumes — data persistence
+Without volumes: docker-compose down deletes all data
+With named volumes: data persists between restarts
+postgres-data, mongodb-data, redis-data defined in compose file
+Production: use managed databases (AWS RDS, Atlas) instead
+
+### Healthchecks and depends_on
+healthcheck: runs a command to verify service is truly ready
+depends_on with condition: service_healthy:
+→ waits for healthcheck to pass before starting dependent service
+→ prevents race conditions (app starting before DB is ready)
+→ pg_isready, mongosh ping, redis-cli ping, rabbitmq-diagnostics
+
+### Multi-stage Docker builds
+Two FROM statements in one Dockerfile:
+Stage 1 (build): large image with build tools
+  Maven/JDK compiles Java → produces JAR
+  Node.js builds TypeScript → produces dist/
+Stage 2 (runtime): small image with only what runs
+  Only the JAR or dist/ copied from build stage
+  No Maven, no TypeScript compiler in final image
+Result: much smaller final image (180MB vs 500MB for Java)
+Smaller = faster deployment, less storage cost, smaller attack surface
+
+### Docker layer caching
+COPY package*.json ./   ← separate step
+RUN npm ci              ← cached if package.json unchanged
+COPY . .                ← only rebuilds when source changes
+Saves minutes on each rebuild — npm ci only runs when needed
+
+### npm ci vs npm install in Docker
+npm install: updates package-lock.json, non-deterministic
+npm ci: reads package-lock.json exactly, deterministic
+Always use npm ci in Docker for reproducible builds
+
+### npm prune --production
+Removes devDependencies after building
+TypeScript and ts-jest not needed at runtime
+Reduces final image size significantly
+
+### Why Redis included but not OpenSearch/pgvector
+Redis: infrastructure ready for future features (rate limiting,
+caching, error rate detection) — easy to add now
+OpenSearch: requires dual-write code changes in Log Service
+pgvector: requires PostgreSQL extension + AI Service changes
+Both deferred to post-Phase-14 with code implementation
+
+### Django 6 requires Python 3.12
+Django 6.0.7 minimum Python version is 3.12
+Dockerfile used python:3.11-slim → pip install failed
+Fix: changed to python:3.12-slim
+Always check framework Python version requirements
+
+### TypeScript tests outside rootDir
+tsconfig.json had rootDir: ./src but tests/ was being included
+Docker build ran tsc which found tests/fixtures.ts outside rootDir
+Fix: add "include": ["src/**/*"] to tsconfig.json
+Excludes tests from production TypeScript compilation
+
+### useSearchParams Suspense requirement
+Next.js 16 requires useSearchParams() wrapped in Suspense
+during static generation (production build)
+Fix: extract component to AuthCallbackContent.tsx
+Parent page.tsx wraps with <Suspense fallback={...}>
+Works in development (lenient) but fails in production build
+
+### Google OAuth in Docker
+Auth Service needs GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET
+These were in local .env but not passed to Docker container
+docker logs incident-auth revealed the error immediately
+Fix: add to docker-compose.yml environment + .env.docker
+
+### docker logs command
+Shows container output same as terminal when running manually
+Essential for debugging containers running in background (-d)
+docker logs incident-auth → see auth service startup logs
+docker logs incident-incidents → see Spring Boot logs
+
+### Demo apps not in Docker Compose
+Platform = services that process data (in Docker)
+Demo apps = fake clients that USE the platform (run locally)
+Demo apps point to localhost:3000 (API Gateway in Docker)
+Works perfectly — no need to containerize the test clients
+
+## Problems Faced
+- version attribute obsolete warning in docker-compose.yml
+- Log Service build failed: Django==6.0.7 requires Python >=3.12
+- Auth/Gateway build failed: tsc not found (only prod deps installed)
+- Auth/Gateway build failed: tests/fixtures.ts outside rootDir
+- Web build failed: useSearchParams() needs Suspense boundary
+- Auth Service failed: Google OAuth credentials not in docker-compose
+- touch command failed for path with parentheses on Windows
+
+## How I Solved Them
+- Removed version: '3.9' from docker-compose.yml
+- Changed FROM python:3.11-slim to python:3.12-slim
+- Changed npm ci --only=production to npm ci (install all deps)
+  Added npm prune --production after build
+- Added "include": ["src/**/*"] to tsconfig.json
+- Created AuthCallbackContent.tsx, wrapped in Suspense in page.tsx
+- Added GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET to compose + .env.docker
+- Used quotes around path: touch "apps/.../AuthCallbackContent.tsx"
+  Or created file directly in VS Code
+
+## Final State
+
+docker-compose --env-file .env.docker up -d
+→ 11 containers running
+→ 4 infrastructure (postgres, mongo, rabbitmq, redis)
+→ 7 services (auth, gateway, incidents, logs, ai, notify, web)
+→ Full pipeline verified end-to-end inside Docker
+→ Email and Slack notifications received
+
+## Commands Used
+```bash
+docker-compose --env-file .env.docker config
+docker-compose --env-compose .env.docker up postgres mongodb rabbitmq redis -d
+docker-compose --env-file .env.docker build notification-service
+docker-compose --env-file .env.docker build log-service
+docker-compose --env-file .env.docker build ai-service
+docker-compose --env-file .env.docker build incident-service
+docker-compose --env-file .env.docker build auth-service api-gateway
+docker-compose --env-file .env.docker build web
+docker-compose --env-file .env.docker up -d
+docker-compose --env-file .env.docker up -d --no-deps auth-service
+docker ps
+docker logs incident-auth
+docker logs incident-logs
+docker logs incident-incidents
+docker logs incident-notifications
+docker-compose --env-file .env.docker down
+git add .
+git commit -m "feat(docker): add Docker Compose, Dockerfiles for all services"
+git push origin feature/docker
+```
+
+## Git Branch
+feature/docker
+
+## Next Step
+Phase 11 — Frontend completion.
+Build the full dashboard that connects to all backend APIs:
+/dashboard → overview stats, recent incidents
+/incidents → list all incidents with filters
+/incidents/:id → single incident with AI analysis and timeline
+/logs → log viewer with search and filters
+All pages connect to real APIs running in Docker.
