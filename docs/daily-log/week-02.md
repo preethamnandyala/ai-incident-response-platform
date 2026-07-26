@@ -1874,3 +1874,248 @@ Consumes incident.created events from RabbitMQ.
 Sends email alerts to on-call engineers.
 Sends Slack webhook notifications.
 Simple Flask service — focused single responsibility.
+
+---
+
+# Day 16 — 13 June 2026
+
+## Goal
+Build Phase 9 — Notification Service (Flask/Python).
+Send email and Slack alerts when CRITICAL incidents are created.
+Complete the full monitoring pipeline with real notifications.
+
+## Work Completed
+
+### Notification Service setup (services/notification-service-flask/)
+- Deleted .gitkeep placeholder
+- Created virtual environment and activated it
+- Installed: flask, pika, requests, python-dotenv, pytest
+- Saved requirements.txt
+- Created files: app.py, consumer.py, notifier.py
+- Created tests/ folder with test_notifier.py
+- Created .env with SMTP and Slack configuration
+- Created .gitignore: venv/, __pycache__/, *.pyc, .env
+
+### External services configured
+- Gmail App Password created at myaccount.google.com/apppasswords
+  2-Step Verification already enabled
+  Generated 16-character app password for IncidentAI
+  No spaces in password when added to .env
+- Slack workspace created: IncidentAI
+  Slack app created: IncidentAI (Blank app)
+  Incoming Webhooks enabled
+  Webhook added to #all-incidentai channel
+  Webhook URL copied to .env
+
+### Files written
+
+**notifier.py:**
+NotificationSettings class — reads all config from .env
+get_severity_emoji() — maps severity to emoji
+  CRITICAL→🔴, HIGH→🟠, MEDIUM→🟡, LOW→🟢, UNKNOWN→⚪
+send_email() — sends multipart/alternative email via Gmail SMTP
+  plain text version for old clients
+  HTML version with red banner, table, blue button
+  uses smtplib.SMTP with starttls() for TLS encryption
+  returns True/False
+send_slack() — sends formatted Block Kit message via webhook
+  header block with severity and emoji
+  section blocks with service name and severity
+  action block with "View Incident →" button
+  skips silently if webhook not configured
+  returns True/False
+notify() — calls both send_email and send_slack
+  returns dict: {'email': bool, 'slack': bool}
+
+**consumer.py:**
+handle_incident_created() — pika callback
+  reads event: incidentId, title, severity, serviceName, organizationId
+  calls notify() with incident data
+  basic_ack on success, basic_nack(requeue=False) on failure
+start_consumer() — pika BlockingConnection
+  declares exchange: incident_platform (topic, durable)
+  declares queue: incident.created.queue (durable)
+  basic_qos(prefetch_count=1)
+  basic_consume + start_consuming
+start_consumer_thread() — daemon thread for consumer
+
+**app.py:**
+Flask app with two health endpoints:
+  GET /health
+  GET /api/notify/health
+Starts consumer thread on startup
+Runs on port 3005
+
+### Tests (12 passing)
+TestGetSeverityEmoji (5 tests):
+  CRITICAL, HIGH, MEDIUM, LOW, UNKNOWN emoji mapping
+TestSendEmail (2 tests):
+  sends email successfully (mocked smtplib.SMTP)
+  returns False on SMTP error
+TestSendSlack (3 tests):
+  sends Slack successfully (mocked requests.post)
+  skips when webhook not configured
+  returns False on connection error
+TestNotify (2 tests):
+  calls both email and Slack
+  returns correct results dict
+
+### End-to-end test — PASSED
+Full pipeline verified with all services running:
+CRITICAL log sent via curl
+→ API Gateway → Log Service → MongoDB
+→ RabbitMQ critical.log.detected
+→ Incident Service → PostgreSQL → incident.created
+→ Notification Service:
+  Email sent: preethamnexus@gmail.com ✓
+  Slack sent: #all-incidentai channel ✓
+  Multiple notifications received from queued messages
+
+## What I Learned
+
+### Why Flask for Notification Service
+Notification Service has one job: receive event, send notification.
+No database models needed, no admin panel, no complex queries,
+no high concurrency. Flask is minimal and lightweight — perfect.
+Django would add 400 lines of unnecessary code.
+FastAPI would add async complexity with no benefit.
+Flask handles this in 100 lines. Simpler is better.
+
+### Gmail App Password vs regular password
+Google blocks regular passwords for SMTP access.
+App Password is a 16-character password generated specifically
+for one application. Remove spaces before adding to .env.
+Requires 2-Step Verification to be enabled first.
+More secure — can revoke one app without changing main password.
+
+### Slack Incoming Webhooks
+A webhook URL that accepts POST requests with JSON payload.
+No authentication needed — the URL itself is the secret.
+Block Kit: Slack's JSON-based message formatting system.
+Supports headers, sections, fields, buttons, images.
+More powerful than plain text — creates rich formatted messages.
+If webhook not configured → skip silently (optional integration).
+
+### multipart/alternative email
+Professional emails include both plain text and HTML versions.
+Email client chooses which to display:
+Gmail/Outlook → shows HTML (beautiful formatted)
+Old clients → shows plain text (readable)
+msg.attach(MIMEText(text, 'plain'))
+msg.attach(MIMEText(html, 'html'))
+starttls() → upgrades connection to TLS before sending credentials.
+
+### RabbitMQ guaranteed delivery
+Messages sit in durable queues until consumed.
+Even if consumer is offline for days → messages wait.
+When Notification Service started → consumed ALL queued messages
+from previous sessions → sent notifications for every one.
+This is correct behaviour — no incident notification ever lost.
+In production: purge queues between development sessions.
+In real deployment: this guarantees engineers are always notified.
+
+### Why no SECRET_KEY in Notification Service
+Auth Service needs it: signs JWT tokens
+Log Service needs it: Django requires it
+AI Service needs it: best practice
+Notification Service: no user sessions, no JWT, no cookies
+Just receives events and sends notifications.
+Pure background service — no cryptographic operations needed.
+
+### On-call routing — current vs future
+Current: one configured email for all notifications
+Future: service_configs table maps each service to team email
+payment-service → payments team email + Slack channel
+user-service → auth team email + Slack channel
+get_notification_targets() function designed for easy extension —
+one function to change when service ownership is added.
+
+### PagerDuty integration pattern
+PagerDuty gives each service an integration email address.
+Our platform sends email to that address.
+PagerDuty handles: who is on-call, escalation, acknowledgement.
+We focus on detection and analysis — PagerDuty handles alerting.
+Same principle: use specialized tools, do not reinvent the wheel.
+
+### Accumulated queue messages
+Previous sessions sent CRITICAL logs → incidents created
+→ incident.created events published to RabbitMQ
+→ nobody consuming yet → messages accumulated
+Phase 9 Notification Service started → consumed all at once
+→ 13 Slack messages + 13 emails received
+Solution: purge queues between dev sessions at localhost:15672
+Or: docker stop clears in-memory state
+
+### Flask development server warning
+"This is a development server. Do not use in production."
+Flask's built-in server is single-threaded, not optimized.
+In production (Phase 14): replace with Gunicorn
+gunicorn --workers 4 app:app
+Same concept as replacing ts-node-dev with proper Node.js
+process manager in production.
+
+## Problems Faced
+- Received 13 Slack/email notifications instead of 1
+- Could not access localhost:15672 to purge queues
+
+## How I Solved Them
+- Explained: accumulated RabbitMQ messages from previous sessions
+  consumed all at once when Notification Service started
+- docker stop clears everything — fresh start next session
+
+## Test Results
+
+Notification Service: 12 tests passing in 0.34s
+End-to-end: FULL PIPELINE VERIFIED
+Email received in Gmail ✓
+Slack messages in #all-incidentai ✓
+Correct incident details in both ✓
+🔴 CRITICAL emoji displayed
+
+## Complete pipeline (all 9 phases working together)
+
+Demo app (payment-demo)
+→ SDK (@incidentai/sdk)
+→ POST /api/logs/ingest
+→ API Gateway (3000) — routes to Log Service
+→ Log Service (3003) — saves to MongoDB
+→ Detects CRITICAL → publishes critical.log.detected
+→ RabbitMQ (5672)
+→ Incident Service (3002) — creates incident in PostgreSQL
+→ publishes incident.created
+→ Notification Service (3005):
+Email → Gmail ✓
+Slack → #all-incidentai ✓
+→ AI Service (3004):
+fetches logs → calls Claude → stores analysis
+
+## Commands Used
+```bash
+python -m venv venv
+source venv/Scripts/activate
+pip install flask pika requests python-dotenv pytest
+pip freeze > requirements.txt
+python app.py
+pytest tests/ -v
+docker start rabbitmq mongodb postgres
+docker stop rabbitmq mongodb postgres
+curl -X POST http://localhost:3000/api/logs/ingest \
+  -H "Content-Type: application/json" \
+  -H "X-Organization-Id: org_default" \
+  -d '{"level":"CRITICAL","message":"Payment database completely lost","service_name":"payment-service"}'
+git add services/notification-service-flask/
+git commit -m "feat(notification): add Notification Service with Flask — email and Slack alerts, RabbitMQ consumer, 12 tests passing"
+git push origin feature/notification-service
+```
+
+## Git Branch
+feature/notification-service
+
+## Next Step
+Phase 10 — Docker Compose.
+Write docker-compose.yml that starts ALL services together:
+PostgreSQL, MongoDB, Redis, RabbitMQ, all 6 microservices.
+One command: docker-compose up → everything running.
+This replaces manual startup of 7+ terminals.
+Also adds Dockerfiles for each service.
+First time the entire platform runs as a unified system.
