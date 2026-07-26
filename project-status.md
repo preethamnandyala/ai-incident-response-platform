@@ -1,12 +1,12 @@
 # Project Status
 
-Date: 12 June 2026
-Current phase: Phase 9 — Notification Service
+Date: 13 June 2026
+Current phase: Phase 10 — Docker Compose
 Completed phases: Phase 0, Phase 1a, Phase 1b, Phase 1c,
                   Phase 2, Phase 3, Phase 4, Phase 5,
-                  Phase 6, Phase 7, Phase 8
+                  Phase 6, Phase 7, Phase 8, Phase 9
 In progress: Not started
-Last commit: docs(daily-log): add day 15 session log
+Last commit: docs(daily-log): add day 16 session log
 Decisions made:
   ADR-001 — use monorepo structure
   ADR-002 — auth service phase split
