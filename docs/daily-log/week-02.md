@@ -1594,3 +1594,283 @@ Consumes incident.created events from RabbitMQ.
 Calls OpenAI API to analyze logs and suggest root causes.
 Stores analysis in PostgreSQL with pgvector for similarity search.
 Adds AI analysis tab to incidents in the dashboard.
+
+---
+
+# Day 15 — 12 June 2026
+
+## Goal
+Build Phase 8 — AI Service (FastAPI/Python).
+AI-powered root cause analysis for incidents using
+Anthropic's Claude API. Consumes incident.created events
+from RabbitMQ and stores analysis in PostgreSQL.
+
+## Work Completed
+
+### AI Service setup (services/ai-service-fastapi/)
+- Deleted .gitkeep placeholder
+- Created virtual environment and activated it
+- Installed packages:
+  fastapi, uvicorn, pika, httpx, sqlalchemy, psycopg2-binary,
+  python-dotenv, openai, pydantic, pytest, pytest-asyncio,
+  anthropic, httpx2
+- Saved requirements.txt
+- Created folder structure:
+  app/ with __init__.py in every subfolder
+  app/api/, app/services/, app/repositories/
+  app/models/, app/consumers/, app/config/
+  tests/ folder
+- Created .env with all configuration
+- Created .gitignore: venv/, __pycache__/, *.pyc, .env, *.db
+- Created pytest.ini with asyncio_mode = auto
+
+### Files written
+
+**app/config/settings.py:**
+Settings class reading all config from .env via os.getenv()
+Fields: debug, secret_key, port, database_url,
+rabbitmq_host/port/user/password, anthropic_api_key,
+log_service_url, incident_service_url,
+incident_created_queue, ai_exchange, ai_analysis_routing_key
+settings singleton exported at module level
+
+**app/config/database.py:**
+SQLAlchemy engine from DATABASE_URL
+SessionLocal session factory
+declarative_base() for model inheritance
+get_db() generator — yields session, closes after request
+create_tables() — creates all tables on startup
+Fixed: changed from sqlalchemy.ext.declarative to
+sqlalchemy.orm.declarative_base (SQLAlchemy 2.0)
+
+**app/models/analysis.py:**
+AIAnalysis SQLAlchemy model → ai_analyses table
+Columns: id(UUID auto-generated), incident_id, organization_id,
+root_cause(Text), confidence(Float), possible_causes(JSON),
+suggested_actions(JSON), similar_incidents(JSON),
+raw_response(Text), model_used(String),
+created_at(DateTime server default), updated_at(DateTime onupdate)
+
+**app/repositories/analysis_repository.py:**
+AnalysisRepository class with db: Session injected
+create() — inserts new analysis, commits, refreshes
+find_by_incident_id() — finds by incident_id + organization_id
+find_by_organization() — lists analyses sorted by created_at desc
+
+**app/services/ai_service.py:**
+fetch_related_logs() — async httpx call to Log Service directly
+  params: service_name, limit=20
+  headers: X-Organization-Id
+  returns: list of log documents
+build_analysis_prompt() — builds structured prompt for Claude
+  includes incident details and last 10 logs
+  requests JSON response with specific schema
+  rootCause, confidence, possibleCauses, suggestedActions
+analyze_incident() — async Anthropic API call
+  model: claude-sonnet-4-6, max_tokens: 1000
+  parses JSON response with regex fallback
+  returns structured analysis dict
+  graceful failure — returns default analysis on error
+
+**app/consumers/incident_consumer.py:**
+get_incident_details() — sync httpx call to Incident Service
+handle_incident_created() — pika callback function
+  reads event: incidentId, organizationId
+  fetches incident details
+  runs async analyze_incident() via asyncio.new_event_loop()
+  stores analysis in PostgreSQL via AnalysisRepository
+  basic_ack on success, basic_nack(requeue=False) on failure
+start_consumer() — pika BlockingConnection, queue declare,
+  basic_qos(prefetch_count=1), basic_consume, start_consuming
+start_consumer_thread() — runs start_consumer in daemon thread
+
+**app/api/routes.py:**
+GET /health → health check with model info
+GET /analyses/{incident_id} → get analysis by incident
+POST /analyses/{incident_id}/trigger → manual AI trigger
+  fetches incident from Incident Service
+  calls analyze_incident()
+  stores and returns result
+GET /analyses → list all analyses for organization
+All routes use Depends(get_db) for database session injection
+
+**app/main.py:**
+FastAPI app with lifespan context manager
+Startup: create_tables() + start_consumer_thread()
+app.include_router(router, prefix='/api/ai')
+Root health check at /health
+
+### Tests (10 passing)
+tests/test_ai_service.py:
+  TestBuildAnalysisPrompt (4 tests):
+    test_includes_incident_title
+    test_includes_service_name
+    test_includes_logs_when_provided
+    test_requests_json_output
+  TestAnalyzeIncident (2 async tests):
+    test_returns_analysis_structure (mocked Anthropic)
+    test_handles_api_failure_gracefully
+
+tests/test_routes.py (4 tests):
+    test_health_check
+    test_ai_health_check
+    test_get_analysis_not_found
+    test_list_analyses_returns_empty
+
+### Anthropic API key
+Created account at platform.claude.com
+Individual organization, $5 free credits
+Created API key with no expiration
+Added to .env as ANTHROPIC_API_KEY
+
+## What I Learned
+
+### Why FastAPI over Django for AI Service
+AI Service is I/O-bound — most time spent waiting for:
+→ Anthropic API response (2-5 seconds)
+→ Log Service HTTP call
+→ PostgreSQL write
+Django is synchronous — one thread blocks while waiting.
+FastAPI is async — single thread handles multiple requests
+simultaneously using async/await. While waiting for OpenAI
+response for incident 1, it starts processing incident 2.
+10 concurrent incidents: Django needs 10 threads,
+FastAPI handles all 10 with one thread.
+
+### Direct service-to-service vs through Gateway
+Gateway: designed for external traffic, requires JWT,
+has rate limiting, adds unnecessary network hop.
+Direct: internal traffic, trusted network, faster,
+no JWT needed, no rate limiting between services.
+AI Service calls Log Service and Incident Service directly
+using internal URLs (localhost in dev, Docker network in prod).
+
+### gRPC vs REST for service communication
+REST: simple, JSON readable, any language supports it,
+easy to debug with curl. Best for most microservices.
+gRPC: binary protocol, HTTP/2, faster, strongly typed
+protobuf contracts, auto-generated clients, streaming support.
+Best for extremely high throughput or real-time streaming.
+Our platform uses REST — request volume does not justify
+gRPC complexity. Would consider gRPC for real-time log
+tailing or if processing 100,000+ incidents per second.
+
+### What is a thread
+A thread is an independent sequence of instructions
+running concurrently within the same process.
+AI Service needs two things simultaneously:
+Main thread: FastAPI HTTP server (handles API requests)
+Background thread: RabbitMQ consumer (listens forever)
+pika's start_consuming() blocks forever — if run in main thread,
+HTTP server never starts. daemon=True means thread dies
+automatically when main process exits — clean shutdown.
+
+### asyncio.new_event_loop() bridge
+RabbitMQ consumer (pika) is synchronous.
+analyze_incident() is async.
+Cannot await async function from sync context directly.
+Solution: create new event loop, run async function to
+completion, close loop. Bridges sync/async boundary.
+loop = asyncio.new_event_loop()
+result = loop.run_until_complete(async_function())
+loop.close()
+
+### __init__.py — making folders into packages
+Python requires __init__.py in every folder to treat it
+as an importable package. Without it:
+from app.services.ai_service import analyze_incident → ImportError
+With empty __init__.py in every folder → import works.
+Node.js treats folders as importable automatically.
+Python requires explicit declaration — stricter.
+
+### pytest.ini asyncio_mode = auto
+pytest is synchronous by default.
+Without asyncio_mode = auto: async tests silently do nothing
+or crash with "coroutine was never awaited".
+With asyncio_mode = auto: pytest-asyncio automatically
+detects and runs all async test functions.
+Equivalent to Jest which handles async tests natively.
+
+### SQLAlchemy session pattern
+get_db() uses yield — generator function.
+FastAPI calls everything before yield (opens session),
+runs the route handler, then calls everything after yield
+(closes session). Automatic cleanup on every request.
+Equivalent to Express middleware that opens/closes connections.
+
+### Dependency injection in FastAPI
+db: Session = Depends(get_db)
+FastAPI calls get_db() before the route handler runs
+and passes the result as the db argument.
+Equivalent to Spring Boot's @Autowired but explicit.
+Makes database session available in any route with one line.
+
+### JSON columns in SQLAlchemy
+possible_causes = Column(JSON, nullable=False, default=list)
+Stores Python lists directly in PostgreSQL JSON column.
+SQLAlchemy serializes list → JSON on write.
+SQLAlchemy deserializes JSON → list on read.
+Perfect for variable-length data like suggested actions.
+
+### Prompt engineering for structured output
+Key technique: tell the AI exactly what JSON schema to return.
+"Respond ONLY with valid JSON. No additional text."
+Two-level parsing: try json.loads() first, then regex fallback.
+Regex: re.search(r'\{.*\}', response, re.DOTALL)
+Makes parsing robust against minor formatting variations.
+
+### basic_ack vs basic_nack
+basic_ack: "I processed this successfully, delete from queue"
+basic_nack(requeue=False): "I failed, do not retry"
+Without ack: RabbitMQ keeps redelivering forever
+With requeue=True on nack: infinite retry loop on bad messages
+With requeue=False on nack: message discarded (goes to
+dead letter queue in production)
+
+### Why Anthropic over OpenAI
+Claude excels at analytical reasoning and structured JSON output.
+Consistent formatting makes parsing more reliable.
+Free $5 credits without credit card requirement.
+Already using Claude — understand its strengths.
+Can explain the choice confidently in interviews.
+
+## Problems Faced
+- declarative_base() deprecation warning in SQLAlchemy 2.0
+- httpx deprecation warning in FastAPI TestClient
+
+## How I Solved Them
+- Changed import from sqlalchemy.ext.declarative to
+  sqlalchemy.orm for declarative_base()
+- pip install httpx2
+
+## Test Results
+
+AI Service: 10 tests passing in 6.12s — zero warnings
+4 prompt building tests
+2 async AI service tests (mocked Anthropic)
+4 route tests (health, 404, empty list)
+
+## Commands Used
+```bash
+python -m venv venv
+source venv/Scripts/activate
+pip install fastapi uvicorn pika httpx sqlalchemy psycopg2-binary python-dotenv openai pydantic pytest pytest-asyncio httpx anthropic
+pip install httpx2
+pip freeze > requirements.txt
+python -c "import secrets; print(secrets.token_urlsafe(50))"
+pytest tests/ -v
+git add services/ai-service-fastapi/
+git commit -m "feat(ai): add AI Service with FastAPI — Anthropic Claude integration, RabbitMQ consumer, PostgreSQL storage, 10 tests passing"
+git push origin feature/ai-service
+```
+
+## Git Branch
+feature/ai-service
+
+## Next Step
+Phase 9 — Notification Service (Flask/Python).
+Build email and Slack notification system.
+Consumes incident.created events from RabbitMQ.
+Sends email alerts to on-call engineers.
+Sends Slack webhook notifications.
+Simple Flask service — focused single responsibility.
