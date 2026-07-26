@@ -1,0 +1,239 @@
+networks:
+  incident-platform:
+    driver: bridge
+
+volumes:
+  postgres-data:
+  mongodb-data:
+  redis-data:
+
+services:
+
+  # ─── Infrastructure ────────────────────────────────────────
+
+  postgres:
+    image: postgres:15
+    container_name: incident-postgres
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: incident_platform
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    networks:
+      - incident-platform
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  mongodb:
+    image: mongo:7
+    container_name: incident-mongodb
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongodb-data:/data/db
+    networks:
+      - incident-platform
+    healthcheck:
+      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    container_name: incident-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis-data:/data
+    networks:
+      - incident-platform
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  rabbitmq:
+    image: rabbitmq:3-management
+    container_name: incident-rabbitmq
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    networks:
+      - incident-platform
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ─── Services ──────────────────────────────────────────────
+
+  auth-service:
+    build:
+      context: ./services/auth-service-express
+      dockerfile: Dockerfile
+    container_name: incident-auth
+    ports:
+      - "3001:3001"
+    environment:
+      NODE_ENV: production
+      PORT: 3001
+      DATABASE_URL: postgresql://postgres:postgres@postgres:5432/incident_platform
+      JWT_ACCESS_SECRET: ${JWT_ACCESS_SECRET}
+      JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET}
+      FRONTEND_URL: http://localhost:3006
+      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID}
+      GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET}
+      GOOGLE_CALLBACK_URL: http://localhost:3000/api/auth/google/callback
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - incident-platform
+
+  api-gateway:
+    build:
+      context: ./services/api-gateway-express
+      dockerfile: Dockerfile
+    container_name: incident-gateway
+    ports:
+      - "3000:3000"
+    environment:
+      NODE_ENV: production
+      PORT: 3000
+      AUTH_SERVICE_URL: http://auth-service:3001
+      INCIDENT_SERVICE_URL: http://incident-service:3002
+      LOG_SERVICE_URL: http://log-service:3003
+      AI_SERVICE_URL: http://ai-service:3004
+      NOTIFY_SERVICE_URL: http://notification-service:3005
+      JWT_ACCESS_SECRET: ${JWT_ACCESS_SECRET}
+      FRONTEND_URL: http://localhost:3006
+    depends_on:
+      - auth-service
+    networks:
+      - incident-platform
+
+  incident-service:
+    build:
+      context: ./services/incident-service
+      dockerfile: Dockerfile
+    container_name: incident-incidents
+    ports:
+      - "3002:3002"
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/incident_platform
+      SPRING_DATASOURCE_USERNAME: postgres
+      SPRING_DATASOURCE_PASSWORD: postgres
+      SPRING_RABBITMQ_HOST: rabbitmq
+      SPRING_RABBITMQ_PORT: 5672
+      SPRING_RABBITMQ_USERNAME: guest
+      SPRING_RABBITMQ_PASSWORD: guest
+      SERVER_PORT: 3002
+    depends_on:
+      postgres:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    networks:
+      - incident-platform
+
+  log-service:
+    build:
+      context: ./services/log-service-django
+      dockerfile: Dockerfile
+    container_name: incident-logs
+    ports:
+      - "3003:3003"
+    environment:
+      DEBUG: "False"
+      SECRET_KEY: ${LOG_SERVICE_SECRET_KEY}
+      ALLOWED_HOSTS: localhost,127.0.0.1,log-service
+      MONGODB_URI: mongodb://mongodb:27017
+      MONGODB_NAME: incident_platform_logs
+      RABBITMQ_HOST: rabbitmq
+      RABBITMQ_PORT: 5672
+      RABBITMQ_USER: guest
+      RABBITMQ_PASSWORD: guest
+      PORT: 3003
+    depends_on:
+      mongodb:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    networks:
+      - incident-platform
+
+  ai-service:
+    build:
+      context: ./services/ai-service-fastapi
+      dockerfile: Dockerfile
+    container_name: incident-ai
+    ports:
+      - "3004:3004"
+    environment:
+      DATABASE_URL: postgresql://postgres:postgres@postgres:5432/incident_platform
+      RABBITMQ_HOST: rabbitmq
+      RABBITMQ_PORT: 5672
+      RABBITMQ_USER: guest
+      RABBITMQ_PASSWORD: guest
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY}
+      LOG_SERVICE_URL: http://log-service:3003
+      INCIDENT_SERVICE_URL: http://incident-service:3002
+      PORT: 3004
+    depends_on:
+      postgres:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    networks:
+      - incident-platform
+
+  notification-service:
+    build:
+      context: ./services/notification-service-flask
+      dockerfile: Dockerfile
+    container_name: incident-notifications
+    ports:
+      - "3005:3005"
+    environment:
+      DEBUG: "False"
+      PORT: 3005
+      RABBITMQ_HOST: rabbitmq
+      RABBITMQ_PORT: 5672
+      RABBITMQ_USER: guest
+      RABBITMQ_PASSWORD: guest
+      SMTP_HOST: smtp.gmail.com
+      SMTP_PORT: 587
+      SMTP_USER: ${SMTP_USER}
+      SMTP_PASSWORD: ${SMTP_PASSWORD}
+      NOTIFICATION_EMAIL: ${NOTIFICATION_EMAIL}
+      SLACK_WEBHOOK_URL: ${SLACK_WEBHOOK_URL}
+      DASHBOARD_URL: http://localhost:3006
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+    networks:
+      - incident-platform
+
+  web:
+    build:
+      context: ./apps/web-nextjs
+      dockerfile: Dockerfile
+    container_name: incident-web
+    ports:
+      - "3006:3006"
+    environment:
+      NEXT_PUBLIC_API_URL: http://localhost:3000
+      PORT: 3006
+    depends_on:
+      - api-gateway
+    networks:
+      - incident-platform
