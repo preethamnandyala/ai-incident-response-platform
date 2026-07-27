@@ -2412,3 +2412,318 @@ Build the full dashboard that connects to all backend APIs:
 /incidents/:id → single incident with AI analysis and timeline
 /logs → log viewer with search and filters
 All pages connect to real APIs running in Docker.
+
+---
+
+# Day 18 — 27 July 2026
+
+## Goal
+Complete Phase 11 — Frontend completion.
+Build all dashboard pages with real data, fix auth flows,
+add form validation, OTP verification, session persistence.
+
+## Work Completed
+
+### Types and Hooks
+**src/types/index.ts — added:**
+Severity, IncidentStatus, LogLevel types
+Incident, IncidentTimeline, AIAnalysis, Log,
+PaginatedLogs, DashboardStats interfaces
+
+**src/hooks/useIncidents.ts:**
+useIncidents() — fetches all incidents, depends on isAuthenticated
+useIncident(id) — fetches single incident + timeline
+updateStatus() — PATCH /api/incidents/:id/status
+
+**src/hooks/useLogs.ts:**
+useLogs(filters) — fetches paginated logs with level/service filters
+useServices() — fetches unique service names for filter dropdown
+
+**src/hooks/useAIAnalysis.ts:**
+useAIAnalysis(incidentId) — fetches AI analysis for incident
+triggerAnalysis() — POST /api/ai/analyses/:id/trigger
+
+### Dashboard pages
+
+**src/app/(dashboard)/dashboard/page.tsx:**
+Stats: Active Incidents, Critical Incidents, Resolved
+Recent Incidents table with severity/status badges
+Clickable rows → /incidents/:id
+isAuthenticated dependency to prevent race condition
+
+**src/app/(dashboard)/incidents/page.tsx:**
+Filter by severity and status dropdowns
+Incident list with title, service, badges, timestamp
+Clickable rows → /incidents/:id
+
+**src/app/(dashboard)/incidents/[id]/page.tsx:**
+Left column: Details (service, created by, assigned to, description)
+AI Analysis: root cause, confidence %, possible causes,
+suggested actions, "Analyze with AI" button
+Right column: Status update buttons (OPEN/INVESTIGATING/RESOLVED/CLOSED)
+Timeline: chronological list of actions
+Fixed: (analysis.possibleCauses || []) for undefined arrays
+
+**src/app/(dashboard)/logs/page.tsx:**
+Table: level badge, service, message, timestamp
+Filter by level and service dropdowns
+Pagination with previous/next buttons
+
+**src/app/(dashboard)/settings/page.tsx:**
+Organization ID with copy button
+User info (name, email, role)
+Quick Setup: code snippet pre-filled with organizationId
+Copy code button
+Notifications section
+
+### Auth flow fixes
+
+**Signup page improvements:**
+Stronger password validation:
+  min 8 chars, uppercase, number, special character
+Real-time validation (mode: onChange)
+Red/green border feedback on fields
+Password show/hide toggle (Eye/EyeOff icons)
+Redirect to /verify-email?email=... after signup
+Fixed z.string().email() deprecation → regex refine
+
+**Email verification OTP page (new file):**
+src/app/(auth)/verify-email/page.tsx
+6 individual digit input boxes
+Auto-focus next box on input
+Backspace moves to previous box
+Paste support for full 6-digit code
+POST /api/auth/verify-email
+Resend code button → POST /api/auth/resend-verification
+Wrapped in Suspense for useSearchParams
+
+**Login page improvements:**
+Password show/hide toggle
+serverError state for invalid credentials
+Both fields turn red on wrong credentials
+Error message stays until next submit attempt
+mode removed (validates on submit only)
+
+**Forgot password page:**
+Passes email as query param to reset password page
+Shows email in "Check your email" confirmation
+
+**Reset password page:**
+Reads email from URL query param (pre-filled)
+Password show/hide toggles on both password fields
+Stronger password validation
+Wrapped in Suspense for useSearchParams
+
+**Google OAuth:**
+Added http://localhost:3000/api/auth/google/callback
+to Google Console authorized redirect URIs
+OAuth flow working end to end
+
+### Session persistence fix
+src/app/(dashboard)/layout.tsx:
+Added tryRefresh() on mount:
+  → if isAuthenticated: skip
+  → else: POST /api/auth/refresh (uses httpOnly cookie)
+  → on success: setAccessToken + fetch user info
+  → on failure: redirect to login
+Added checking state → shows spinner while verifying
+Fixes logout on page refresh
+
+### Auth Service fixes
+
+**services/auth-service-express/src/config/migrate.ts:**
+Inline SQL schema (no file reading)
+Tables: users, refresh_tokens,
+email_verification_otps, password_reset_otps
+Correct column: email_verified (not is_verified)
+Runs on startup via server.ts → runMigrations()
+
+**services/auth-service-express/src/server.ts:**
+Added async start() function
+Calls runMigrations() before app.listen()
+process.exit(1) if migration fails
+
+**services/auth-service-express/src/services/auth.service.ts:**
+Fixed refresh token missing organizationId bug (line 151)
+Added organizationId to refresh token JWT payload
+Before: { userId, role }
+After: { userId, role, organizationId }
+
+**docker-compose.yml:**
+Fixed auth-service environment:
+Changed DATABASE_URL to separate:
+DB_HOST, DB_PORT, DB_NAME, DB_USER, DB_PASSWORD
+Added GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET,
+GOOGLE_CALLBACK_URL
+
+### AuthCallbackContent.tsx (Phase 10 fix carried forward)
+src/app/(auth)/auth/callback/AuthCallbackContent.tsx
+Extracted from page.tsx for Suspense boundary
+page.tsx wraps with <Suspense fallback={spinner}>
+
+### Settings sidebar
+Added Settings link to dashboard layout
+import Settings from lucide-react
+navItems includes /settings with Settings icon
+
+## What I Learned
+
+### Race condition — isAuthenticated dependency
+Problem: Dashboard page mounts simultaneously with layout
+Layout runs tryRefresh() async
+Page immediately calls api.get('/api/incidents')
+No token yet → 401 → empty result
+tryRefresh() completes → token set → but page already rendered
+
+Fix: Add isAuthenticated to useEffect dependency array
+useEffect(() => {
+    if (!isAuthenticated) return
+    fetchIncidents()
+}, [isAuthenticated])
+→ Fetches only AFTER token is set → correct data
+
+### Refresh token missing organizationId
+Login → JWT has organizationId ✓
+15 minutes → token expires
+Refresh → new JWT missing organizationId ✗
+Gateway → decoded.organizationId undefined → fallback 'default'
+Incident Service → queries org 'default' → empty []
+Fix: add organizationId to refresh JWT payload
+This is a real production bug — only surfaces after 15 minutes
+
+### Silent token refresh on page load
+Access token in Zustand memory → lost on refresh
+Refresh token in httpOnly cookie → survives refresh
+Solution: on dashboard mount, try POST /api/auth/refresh
+If cookie exists → get new access token → restore session
+If not → redirect to login
+Pattern used by: GitHub, Notion, Linear, every SaaS
+
+### React-hook-form mode
+mode: 'onChange' → validates on every keystroke
+mode: 'onBlur' → validates when leaving field
+mode: 'all' → validates on both
+no mode → validates only on submit
+Login: no mode (submit only) — simpler for login form
+Signup: mode: 'onChange' — real-time feedback for password strength
+
+### OTP input UX pattern
+6 individual inputs instead of one text field
+Better UX: auto-advance, backspace-navigate, paste support
+Used by: Google, Apple, GitHub 2FA
+useRef array for programmatic focus control
+inputRefs.current[index + 1]?.focus()
+
+### useSearchParams requires Suspense
+Next.js 16 production build requirement
+useSearchParams() must be in a component wrapped by Suspense
+Fix: extract to XxxContent component
+Parent page wraps with <Suspense fallback={...}>
+Applies to: verify-email, reset-password, auth/callback
+
+### Docker postgres auth service connection
+AUTH Service uses: DB_HOST, DB_PORT, DB_NAME, DB_USER, DB_PASSWORD
+Not: DATABASE_URL (that is for other services)
+docker exec incident-auth env | grep DATABASE
+→ revealed correct env var but wrong variable name used
+docker logs incident-auth → revealed connection refused error
+
+### Schema migration inline SQL
+CREATE TABLE IF NOT EXISTS — skips if table exists
+Problem: old wrong table exists → migration skips → wrong columns
+Fix: DROP TABLE first, then restart → migrations recreate correctly
+Better approach: inline SQL in TypeScript → compiled into dist
+No file reading → no ENOENT errors in Docker
+
+### Multi-tenancy in practice
+Every user gets organization_id = org_default currently
+JWT contains organizationId
+API Gateway extracts from JWT → x-organization-id header
+Every service filters by organization_id
+Full isolation works — demonstrated by querying different orgs
+Organization registration (post-Phase-14) assigns unique IDs
+
+### SDK integration across languages
+Node.js: npm install @incidentai/sdk — 3 lines
+Java: direct REST HTTP calls → future Maven SDK
+Python: direct REST calls → future PyPI SDK
+All follow same pattern: init once at entry, use everywhere
+silent: true ensures SDK never crashes monitored app
+Docker sidecar agent (post-Phase-14): zero code changes needed
+
+## Problems Faced
+- Port 3006 already in use (Docker web container running)
+- Auth Service connecting to localhost:5432 in Docker
+- Tables did not exist (migration not running)
+- Wrong column name: is_verified instead of email_verified
+- Missing tables: email_verification_otps, password_reset_otps
+- Old wrong tables existed — CREATE TABLE IF NOT EXISTS skipped
+- Schema.sql file not found in dist/ folder
+- Incidents returning empty [] after token refresh
+- Refresh token missing organizationId
+- Logout on page refresh
+- serverError disappearing too quickly on login
+- useSearchParams without Suspense in production build
+
+## How I Solved Them
+- docker-compose stop web → run Next.js locally
+- Changed DATABASE_URL to DB_HOST/PORT/NAME/USER/PASSWORD
+- Created migrate.ts with inline SQL, called in server.ts
+- Updated schema: email_verified column
+- Added email_verification_otps and password_reset_otps tables
+- docker exec psql DROP TABLE → restart → migration recreates
+- Moved SQL inline in TypeScript → no file reading needed
+- Added isAuthenticated dependency to all data fetch hooks
+- Added organizationId to refresh token JWT sign
+- Added tryRefresh() in dashboard layout useEffect
+- Removed mode: 'onBlur', removed onChange clearing serverError
+- Extracted AuthCallbackContent, verify-email, reset-password
+  into separate components wrapped in Suspense
+
+## Test Results
+
+All auth flows verified end to end:
+✓ Signup → OTP verification → login → dashboard
+✓ Login with wrong credentials → red error stays
+✓ Forgot password → OTP → reset → login
+✓ Google OAuth → dashboard
+✓ Page refresh → session persists
+✓ Dashboard shows real incident data
+✓ Incidents list with filters working
+✓ Incident detail with AI analysis working
+✓ Status update → timeline updates
+✓ Logs page with filters working
+✓ Settings page with copy buttons working
+
+## Commands Used
+```bash
+docker-compose --env-file .env.docker up -d
+docker-compose --env-file .env.docker stop web
+docker-compose --env-file .env.docker build auth-service
+docker-compose --env-file .env.docker up -d --no-deps auth-service
+docker logs incident-auth --tail 20
+docker exec incident-auth env | grep DATABASE
+docker exec -it incident-postgres psql -U postgres -d incident_platform \
+  -c "DROP TABLE IF EXISTS email_verification_tokens, \
+      password_reset_tokens, refresh_tokens, users CASCADE;"
+docker restart incident-auth
+docker exec -it incident-postgres psql -U postgres -d incident_platform \
+  -c "SELECT id, title, status FROM incidents;"
+docker-compose --env-file .env.docker down
+cd apps/web-nextjs
+npm run dev
+git add .
+git commit -m "feat(frontend): complete Phase 11 — all auth flows, OTP verification, forgot/reset password, Google OAuth, dashboard, incidents, logs, settings, session persistence, refresh token fix"
+git push origin feature/frontend
+```
+
+## Git Branch
+feature/frontend
+
+## Next Step
+Phase 12 — Testing.
+Write comprehensive test suite for all services.
+Integration tests for full pipeline.
+Frontend component tests.
+CI/CD pipeline will run these tests automatically.
+Gives confidence before deployment.
