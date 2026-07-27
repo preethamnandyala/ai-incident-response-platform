@@ -1,23 +1,26 @@
 'use client'
-
-import { useState } from 'react'
+import { useState, Suspense } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import Link from 'next/link'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { toast } from 'sonner'
+import { Eye, EyeOff } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { api } from '@/lib/api'
-import { getErrorMessage } from '@/lib/utils'
+import { getErrorMessage, cn } from '@/lib/utils'
 
 const resetSchema = z.object({
-    email: z.string().email('Valid email is required'),
     otp: z.string().length(6, 'OTP must be exactly 6 digits').regex(/^\d+$/, 'OTP must contain only numbers'),
-    newPassword: z.string().min(8, 'Password must be at least 8 characters'),
+    newPassword: z.string()
+        .min(8, 'Password must be at least 8 characters')
+        .regex(/[A-Z]/, 'Password must contain at least one uppercase letter')
+        .regex(/[0-9]/, 'Password must contain at least one number')
+        .regex(/[^A-Za-z0-9]/, 'Password must contain at least one special character'),
     confirmPassword: z.string().min(1, 'Please confirm your password')
 }).refine((data) => data.newPassword === data.confirmPassword, {
     message: 'Passwords do not match',
@@ -26,11 +29,19 @@ const resetSchema = z.object({
 
 type ResetForm = z.infer<typeof resetSchema>
 
-export default function ResetPasswordPage() {
+function ResetPasswordContent() {
     const router = useRouter()
+    const searchParams = useSearchParams()
+    const email = searchParams.get('email') || ''
     const [isLoading, setIsLoading] = useState(false)
+    const [showPassword, setShowPassword] = useState(false)
+    const [showConfirmPassword, setShowConfirmPassword] = useState(false)
 
-    const { register, handleSubmit, formState: { errors } } = useForm<ResetForm>({
+    const {
+        register,
+        handleSubmit,
+        formState: { errors }
+    } = useForm<ResetForm>({
         resolver: zodResolver(resetSchema)
     })
 
@@ -38,7 +49,7 @@ export default function ResetPasswordPage() {
         setIsLoading(true)
         try {
             await api.post('/api/auth/reset-password', {
-                email: data.email,
+                email,
                 otp: data.otp,
                 newPassword: data.newPassword
             })
@@ -64,23 +75,13 @@ export default function ResetPasswordPage() {
                 </div>
                 <CardTitle>Reset password</CardTitle>
                 <CardDescription>
-                    Enter the OTP from your email and choose a new password
+                    Enter the OTP sent to{' '}
+                    <span className="font-medium text-gray-900">{email}</span>
                 </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
                 <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
-                    <div className="space-y-2">
-                        <Label htmlFor="email">Email</Label>
-                        <Input
-                            id="email"
-                            type="email"
-                            placeholder="hari@example.com"
-                            {...register('email')}
-                        />
-                        {errors.email && (
-                            <p className="text-sm text-red-500">{errors.email.message}</p>
-                        )}
-                    </div>
+
                     <div className="space-y-2">
                         <Label htmlFor="otp">One-time code</Label>
                         <Input
@@ -88,36 +89,68 @@ export default function ResetPasswordPage() {
                             type="text"
                             placeholder="123456"
                             maxLength={6}
+                            className={cn(
+                                errors.otp && 'border-red-500 focus-visible:ring-red-500'
+                            )}
                             {...register('otp')}
                         />
                         {errors.otp && (
                             <p className="text-sm text-red-500">{errors.otp.message}</p>
                         )}
                     </div>
+
                     <div className="space-y-2">
                         <Label htmlFor="newPassword">New password</Label>
-                        <Input
-                            id="newPassword"
-                            type="password"
-                            placeholder="••••••••"
-                            {...register('newPassword')}
-                        />
+                        <div className="relative">
+                            <Input
+                                id="newPassword"
+                                type={showPassword ? 'text' : 'password'}
+                                placeholder="••••••••"
+                                className={cn(
+                                    'pr-10',
+                                    errors.newPassword && 'border-red-500 focus-visible:ring-red-500'
+                                )}
+                                {...register('newPassword')}
+                            />
+                            <button
+                                type="button"
+                                onClick={() => setShowPassword(!showPassword)}
+                                className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                            >
+                                {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                            </button>
+                        </div>
                         {errors.newPassword && (
                             <p className="text-sm text-red-500">{errors.newPassword.message}</p>
                         )}
                     </div>
+
                     <div className="space-y-2">
                         <Label htmlFor="confirmPassword">Confirm new password</Label>
-                        <Input
-                            id="confirmPassword"
-                            type="password"
-                            placeholder="••••••••"
-                            {...register('confirmPassword')}
-                        />
+                        <div className="relative">
+                            <Input
+                                id="confirmPassword"
+                                type={showConfirmPassword ? 'text' : 'password'}
+                                placeholder="••••••••"
+                                className={cn(
+                                    'pr-10',
+                                    errors.confirmPassword && 'border-red-500 focus-visible:ring-red-500'
+                                )}
+                                {...register('confirmPassword')}
+                            />
+                            <button
+                                type="button"
+                                onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                                className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                            >
+                                {showConfirmPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                            </button>
+                        </div>
                         {errors.confirmPassword && (
                             <p className="text-sm text-red-500">{errors.confirmPassword.message}</p>
                         )}
                     </div>
+
                     <Button type="submit" className="w-full" disabled={isLoading}>
                         {isLoading ? 'Resetting...' : 'Reset password'}
                     </Button>
@@ -129,5 +162,17 @@ export default function ResetPasswordPage() {
                 </p>
             </CardContent>
         </Card>
+    )
+}
+
+export default function ResetPasswordPage() {
+    return (
+        <Suspense fallback={
+            <div className="flex items-center justify-center">
+                <div className="w-8 h-8 border-4 border-black border-t-transparent rounded-full animate-spin" />
+            </div>
+        }>
+            <ResetPasswordContent />
+        </Suspense>
     )
 }

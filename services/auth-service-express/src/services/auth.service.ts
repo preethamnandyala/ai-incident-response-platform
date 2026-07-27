@@ -149,7 +149,7 @@ async refresh(refreshToken: string): Promise<{ accessToken: string }> {
 
     // Generate new access token
     const accessToken = jwt.sign(
-        { userId: user.id, role: user.role },
+        { userId: user.id, role: user.role, organizationId: user.organizationId },
         env.jwt.accessSecret,
         { expiresIn: env.jwt.accessExpiry as '15m' }
     )

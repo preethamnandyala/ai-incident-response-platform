@@ -1,10 +1,10 @@
 'use client'
-
 import { useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import Link from 'next/link'
+import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -14,14 +14,19 @@ import { api } from '@/lib/api'
 import { getErrorMessage } from '@/lib/utils'
 
 const forgotSchema = z.object({
-    email: z.string().email('Valid email is required')
+    email: z.string().min(1, 'Email is required').refine(
+        (val) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(val),
+        'Please enter a valid email address'
+    )
 })
 
 type ForgotForm = z.infer<typeof forgotSchema>
 
 export default function ForgotPasswordPage() {
+    const router = useRouter()
     const [isLoading, setIsLoading] = useState(false)
     const [submitted, setSubmitted] = useState(false)
+    const [email, setEmail] = useState('')
 
     const { register, handleSubmit, formState: { errors } } = useForm<ForgotForm>({
         resolver: zodResolver(forgotSchema)
@@ -31,6 +36,7 @@ export default function ForgotPasswordPage() {
         setIsLoading(true)
         try {
             await api.post('/api/auth/forgot-password', data)
+            setEmail(data.email)
             setSubmitted(true)
         } catch (error) {
             toast.error(getErrorMessage(error))
@@ -53,14 +59,18 @@ export default function ForgotPasswordPage() {
                     </div>
                     <CardTitle>Check your email</CardTitle>
                     <CardDescription>
-                        If an account exists with that email, we have sent an OTP.
+                        We sent a 6-digit code to{' '}
+                        <span className="font-medium text-gray-900">{email}</span>.
                         The code expires in 15 minutes.
                     </CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-4">
-                    <Link href="/reset-password">
-                        <Button className="w-full">Enter OTP</Button>
-                    </Link>
+                    <Button
+                        className="w-full"
+                        onClick={() => router.push(`/reset-password?email=${encodeURIComponent(email)}`)}
+                    >
+                        Enter OTP
+                    </Button>
                     <p className="text-center text-sm text-gray-600">
                         <Link href="/login" className="text-blue-600 hover:underline">
                             Back to login
@@ -93,7 +103,7 @@ export default function ForgotPasswordPage() {
                         <Label htmlFor="email">Email</Label>
                         <Input
                             id="email"
-                            type="email"
+                            type="text"
                             placeholder="hari@example.com"
                             {...register('email')}
                         />

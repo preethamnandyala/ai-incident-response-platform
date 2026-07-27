@@ -86,7 +86,11 @@ services:
     environment:
       NODE_ENV: production
       PORT: 3001
-      DATABASE_URL: postgresql://postgres:postgres@postgres:5432/incident_platform
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_NAME: incident_platform
+      DB_USER: postgres
+      DB_PASSWORD: postgres
       JWT_ACCESS_SECRET: ${JWT_ACCESS_SECRET}
       JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET}
       FRONTEND_URL: http://localhost:3006

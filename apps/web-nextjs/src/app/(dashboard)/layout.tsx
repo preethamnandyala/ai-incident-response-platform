@@ -1,17 +1,18 @@
 'use client'
-
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import { useRouter, usePathname } from 'next/navigation'
 import Link from 'next/link'
 import { toast } from 'sonner'
 import { useAuthStore } from '@/store/auth.store'
 import { api } from '@/lib/api'
+import axios from 'axios'
 import {
     LayoutDashboard,
     AlertTriangle,
     FileText,
     LogOut,
-    Zap
+    Zap,
+    Settings
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
@@ -20,7 +21,10 @@ const navItems = [
     { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
     { href: '/incidents', label: 'Incidents', icon: AlertTriangle },
     { href: '/logs', label: 'Logs', icon: FileText },
+    { href: '/settings', label: 'Settings', icon: Settings }
 ]
+
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000'
 
 export default function DashboardLayout({
     children,
@@ -29,13 +33,45 @@ export default function DashboardLayout({
 }) {
     const router = useRouter()
     const pathname = usePathname()
-    const { isAuthenticated, user, logout } = useAuthStore()
+    const { isAuthenticated, user, logout, setAccessToken, setUser } = useAuthStore()
+    const [checking, setChecking] = useState(true)
 
     useEffect(() => {
-        if (!isAuthenticated) {
-            router.push('/login')
+        const tryRefresh = async () => {
+            if (isAuthenticated) {
+                setChecking(false)
+                return
+            }
+
+            try {
+                // Try to refresh token using httpOnly cookie
+                const response = await axios.post(
+                    `${API_BASE_URL}/api/auth/refresh`,
+                    {},
+                    { withCredentials: true }
+                )
+                const { accessToken } = response.data
+                setAccessToken(accessToken)
+
+                // Fetch user info
+                const userResponse = await axios.get(
+                    `${API_BASE_URL}/api/auth/me`,
+                    {
+                        headers: { Authorization: `Bearer ${accessToken}` },
+                        withCredentials: true
+                    }
+                )
+                setUser(userResponse.data)
+            } catch {
+                // Refresh failed — redirect to login
+                router.push('/login')
+            } finally {
+                setChecking(false)
+            }
         }
-    }, [isAuthenticated, router])
+
+        tryRefresh()
+    }, [])
 
     const handleLogout = async () => {
         try {
@@ -49,16 +85,22 @@ export default function DashboardLayout({
         }
     }
 
+    if (checking) {
+        return (
+            <div className="flex h-screen items-center justify-center bg-gray-50">
+                <div className="w-8 h-8 border-4 border-black border-t-transparent rounded-full animate-spin" />
+            </div>
+        )
+    }
+
     if (!isAuthenticated) {
         return null
     }
 
     return (
         <div className="flex h-screen bg-gray-50">
-
             {/* Sidebar */}
             <aside className="w-64 bg-white border-r border-gray-200 flex flex-col">
-
                 {/* Logo */}
                 <div className="h-16 flex items-center px-6 border-b border-gray-200">
                     <div className="flex items-center gap-2">
@@ -68,7 +110,6 @@ export default function DashboardLayout({
                         <span className="font-bold text-lg">IncidentAI</span>
                     </div>
                 </div>
-
                 {/* Navigation */}
                 <nav className="flex-1 px-4 py-6 space-y-1">
                     {navItems.map((item) => {
@@ -91,7 +132,6 @@ export default function DashboardLayout({
                         )
                     })}
                 </nav>
-
                 {/* User info at bottom */}
                 <div className="p-4 border-t border-gray-200">
                     <div className="flex items-center gap-3 mb-3">
@@ -120,23 +160,19 @@ export default function DashboardLayout({
                     </Button>
                 </div>
             </aside>
-
             {/* Main content */}
             <main className="flex-1 overflow-auto">
-
                 {/* Topbar */}
                 <header className="h-16 bg-white border-b border-gray-200 flex items-center px-6">
                     <h1 className="text-lg font-semibold text-gray-900">
                         {navItems.find(item => item.href === pathname)?.label || 'Dashboard'}
                     </h1>
                 </header>
-
                 {/* Page content */}
                 <div className="p-6">
                     {children}
                 </div>
             </main>
-
         </div>
     )
 }
