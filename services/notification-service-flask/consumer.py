@@ -1,11 +1,16 @@
 import pika
 import json
 import threading
+import time
 from dotenv import load_dotenv
 import os
 from notifier import notify
 
 load_dotenv()
+
+NOTIFICATION_QUEUE = 'notification.incident.queue'
+EXCHANGE = 'incident_platform'
+ROUTING_KEY = 'incident.created'
 
 
 def handle_incident_created(ch, method, properties, body):
@@ -29,7 +34,6 @@ def handle_incident_created(ch, method, properties, body):
 
         results = notify(incident)
         print(f"Notification results: {results}")
-
         ch.basic_ack(delivery_tag=method.delivery_tag)
 
     except Exception as e:
@@ -41,41 +45,61 @@ def handle_incident_created(ch, method, properties, body):
 
 
 def start_consumer():
-    try:
-        credentials = pika.PlainCredentials(
-            os.getenv('RABBITMQ_USER', 'guest'),
-            os.getenv('RABBITMQ_PASSWORD', 'guest')
-        )
-        parameters = pika.ConnectionParameters(
-            host=os.getenv('RABBITMQ_HOST', 'localhost'),
-            port=int(os.getenv('RABBITMQ_PORT', '5672')),
-            credentials=credentials
-        )
-        connection = pika.BlockingConnection(parameters)
-        channel = connection.channel()
+    retry_delay = 5
+    max_retries = 10
+    retries = 0
 
-        channel.exchange_declare(
-            exchange='incident_platform',
-            exchange_type='topic',
-            durable=True
-        )
+    while retries < max_retries:
+        try:
+            credentials = pika.PlainCredentials(
+                os.getenv('RABBITMQ_USER', 'guest'),
+                os.getenv('RABBITMQ_PASSWORD', 'guest')
+            )
+            parameters = pika.ConnectionParameters(
+                host=os.getenv('RABBITMQ_HOST', 'localhost'),
+                port=int(os.getenv('RABBITMQ_PORT', '5672')),
+                credentials=credentials,
+                connection_attempts=3,
+                retry_delay=2
+            )
+            connection = pika.BlockingConnection(parameters)
+            channel = connection.channel()
 
-        channel.queue_declare(
-            queue='incident.created.queue',
-            durable=True
-        )
+            channel.exchange_declare(
+                exchange=EXCHANGE,
+                exchange_type='topic',
+                durable=True
+            )
 
-        channel.basic_qos(prefetch_count=1)
-        channel.basic_consume(
-            queue='incident.created.queue',
-            on_message_callback=handle_incident_created
-        )
+            channel.queue_declare(
+                queue=NOTIFICATION_QUEUE,
+                durable=True
+            )
 
-        print("Notification Service consuming from incident.created.queue...")
-        channel.start_consuming()
+            channel.queue_bind(
+                exchange=EXCHANGE,
+                queue=NOTIFICATION_QUEUE,
+                routing_key=ROUTING_KEY
+            )
 
-    except Exception as e:
-        print(f"Consumer error: {e}")
+            channel.basic_qos(prefetch_count=1)
+            channel.basic_consume(
+                queue=NOTIFICATION_QUEUE,
+                on_message_callback=handle_incident_created
+            )
+
+            print(f"Notification Service consuming from {NOTIFICATION_QUEUE}...")
+            retries = 0
+            channel.start_consuming()
+
+        except Exception as e:
+            retries += 1
+            print(f"Consumer error (attempt {retries}/{max_retries}): {e}")
+            if retries < max_retries:
+                print(f"Retrying in {retry_delay} seconds...")
+                time.sleep(retry_delay)
+            else:
+                print("Max retries reached. Consumer stopped.")
 
 
 def start_consumer_thread():

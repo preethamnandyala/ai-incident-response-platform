@@ -157,6 +157,7 @@ services:
     ports:
       - "3003:3003"
     environment:
+      PYTHONUNBUFFERED: "1"
       DEBUG: "False"
       SECRET_KEY: ${LOG_SERVICE_SECRET_KEY}
       ALLOWED_HOSTS: localhost,127.0.0.1,log-service
@@ -183,6 +184,7 @@ services:
     ports:
       - "3004:3004"
     environment:
+      PYTHONUNBUFFERED: "1"
       DATABASE_URL: postgresql://postgres:postgres@postgres:5432/incident_platform
       RABBITMQ_HOST: rabbitmq
       RABBITMQ_PORT: 5672
@@ -208,6 +210,7 @@ services:
     ports:
       - "3005:3005"
     environment:
+      PYTHONUNBUFFERED: "1"
       DEBUG: "False"
       PORT: 3005
       RABBITMQ_HOST: rabbitmq
