@@ -22,5 +22,11 @@ module.exports = {
             lines: 70,
             statements: 70
         }
-    }
+    },
+    coveragePathIgnorePatterns: [
+        '/node_modules/'
+    ],
+    testPathIgnorePatterns: [
+        '/node_modules/'
+    ]
 }

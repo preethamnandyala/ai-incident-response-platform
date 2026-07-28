@@ -1,13 +1,13 @@
 # Project Status
 
-Date: 28 July 2026
-Current phase: Phase 12 — Testing (in progress)
+Date: 29 July 2026
+Current phase: Phase 13 — CI/CD Pipeline
 Completed phases: Phase 0, Phase 1a, Phase 1b, Phase 1c,
                   Phase 2, Phase 3, Phase 4, Phase 5,
                   Phase 6, Phase 7, Phase 8, Phase 9,
-                  Phase 10, Phase 11
-In progress: Phase 12 — unit tests verified, integration tests pending
-Last commit: docs(daily-log): add day 19 session log
+                  Phase 10, Phase 11, Phase 12
+In progress: Not started
+Last commit: docs(daily-log): add day 20 session log
 Decisions made:
   ADR-001 — use monorepo structure
   ADR-002 — auth service phase split

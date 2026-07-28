@@ -2961,3 +2961,318 @@ Write integration tests for:
 3. Pipeline integration test
    CRITICAL log → incident in PostgreSQL → notification triggered
 4. End-to-end test script for pre-deployment verification
+
+
+---
+
+# Day 20 — 29 July 2026
+
+## Goal
+Phase 12 continues — Write integration tests.
+Auth Service integration tests, pipeline integration tests,
+and full platform end-to-end pipeline verification.
+
+## Work Completed
+
+### Auth Service integration tests
+**tests/auth.integration.test.ts (14 tests):**
+
+Setup:
+- Installed supertest and @types/supertest
+- Created tsconfig.test.json with types: ["jest", "node"]
+- Updated jest.config.js with transform syntax
+- Added npm scripts:
+  "test" → unit tests only with coverage
+  "test:integration" → integration tests no coverage
+  "test:all" → all tests no coverage
+
+Test structure:
+- TEST_USER with unique email using Date.now()
+- beforeAll: clean test users from database
+- afterAll: clean test users, pool.end()
+
+POST /api/auth/signup (4 tests):
+  should create a new user successfully
+  should return 409 when email already exists
+  should return 400 when email is invalid
+  should return 400 when password is too short
+
+POST /api/auth/login (5 tests):
+  should login successfully with correct credentials
+  should return JWT with organizationId in payload ← critical test
+  should set refresh token as httpOnly cookie
+  should return 401 with wrong password
+  should return 401 with non-existent email
+
+POST /api/auth/refresh (2 tests):
+  should return new access token with organizationId ← critical test
+  should return 401 with invalid refresh token
+
+GET /api/auth/me (2 tests):
+  should return user profile with valid token
+  should return 401 without token
+
+POST /api/auth/logout (1 test):
+  should logout and clear refresh token cookie
+
+**tests/pipeline.integration.test.ts (6 tests):**
+
+Setup:
+- beforeAll: signup + login, store accessToken
+- All tests share one accessToken (no repeated logins)
+
+Auth → API Gateway flow (3 tests):
+  should forward organizationId header through Gateway
+  should reject requests without valid JWT
+  should reject requests with no JWT
+
+JWT token structure (2 tests):
+  should contain all required fields in access token
+  should contain organizationId in refreshed token ← catches Phase 11 bug
+
+Health checks (1 test):
+  should return healthy status
+
+**Total Auth Service tests: 116 (96 unit + 20 integration)**
+
+### Platform pipeline integration tests
+**tests/integration/platform.pipeline.test.ts (8 tests):**
+
+Setup:
+- Standalone test suite at project root level
+- Uses axios for HTTP calls (not supertest)
+- Uses pg Client for direct PostgreSQL queries
+- Tests run against Docker services (real infrastructure)
+
+Files created:
+- tests/integration/platform.pipeline.test.ts
+- tests/integration/package.json
+- tests/integration/tsconfig.json
+- tests/integration/jest.config.js
+
+Dependencies installed:
+- axios, pg, @types/pg, @types/jest, ts-jest, typescript
+
+Health checks (4 tests):
+  API Gateway should be healthy
+  Log Service should be healthy
+  Incident Service should be healthy
+  AI Service should be healthy
+
+Log ingestion (3 tests):
+  should accept INFO log without creating incident
+  should accept CRITICAL log and create incident
+  should create incident with correct title, severity, status, org
+
+Full pipeline verification (1 test):
+  should complete full CRITICAL log → incident flow
+  → sends log → gets logId from MongoDB
+  → waits 4 seconds for RabbitMQ processing
+  → queries PostgreSQL for incident containing that logId
+  → verifies complete traceability
+
+**Total platform pipeline tests: 8**
+
+### Code fixes during testing
+- DB_PASSWORD= was empty in .env → set to postgres
+- ON CONFLICT (token) DO NOTHING in saveRefreshToken
+  duplicate token when multiple logins in same second
+- secure: process.env.NODE_ENV === 'production' in auth.controller.ts
+  was hardcoded true → supertest (HTTP) could not send cookie
+- Updated unit test: secure: true → secure: false
+- logout test needed Authorization Bearer + Cookie both
+
+## Complete test summary
+
+Auth Service unit: 96 tests ✓ (100% coverage)
+Auth Service integration: 20 tests ✓ (real DB, real HTTP)
+Platform pipeline: 8 tests ✓ (real Docker services)
+API Gateway: 12 tests ✓
+Incident Service: 26 tests ✓
+Log Service: 20 tests ✓
+AI Service: 10 tests ✓
+Notification Service: 12 tests ✓
+SDK: 8 tests ✓
+─────────────────────────────────────
+Total: 212 tests ✓
+
+## What I Learned
+
+### What integration tests are and why they matter
+Unit tests mock everything → test logic in isolation
+Integration tests use real infrastructure → test full flow
+Example: refresh token missing organizationId bug
+→ unit tests passed (JWT was mocked)
+→ integration test would have caught it immediately
+→ real usage failed after 15 minutes
+
+### supertest — HTTP testing library
+Makes HTTP requests to Express app without starting server
+request(app).post('/api/auth/login').send({...})
+Same as curl but in code, synchronous, inspectable
+Returns full response: status, body, headers, cookies
+
+### JWT decoding in tests
+JWT = header.payload.signature (base64 encoded)
+token.split('.')[1] → base64 payload
+Buffer.from(payload, 'base64').toString() → JSON string
+JSON.parse(...) → object with userId, organizationId etc
+We can verify JWT contents without the secret key
+Used to verify organizationId is present in token
+
+### Why Date.now() in test emails
+integration_${Date.now()}@test.com
+→ unique timestamp every test run
+→ no conflicts between runs
+→ LIKE 'integration_%@test.com' cleans all of them
+→ same pattern for logout_, pipeline_ prefixes
+
+### beforeAll vs afterAll vs beforeEach vs afterEach
+beforeAll: runs ONCE before all tests in file → setup
+afterAll: runs ONCE after all tests in file → cleanup
+beforeEach: runs before EACH test → reset state
+afterEach: runs after EACH test → cleanup per test
+We used beforeAll/afterAll for efficiency
+Creating user once and sharing across tests is faster
+
+### ON CONFLICT (token) DO NOTHING
+Problem: multiple logins in same second → same JWT iat
+→ same refresh token → duplicate key constraint violation
+ON CONFLICT (token) DO NOTHING:
+→ if token already exists → silently skip INSERT
+→ no error thrown → login succeeds
+→ token already in database from first login → still valid
+UNIQUE constraint kept → security maintained
+PostgreSQL enforces constraints → cannot just insert duplicate
+
+### secure: process.env.NODE_ENV === 'production'
+Cookie with secure: true only sent over HTTPS
+supertest uses HTTP → cookie rejected → not sent back
+logout test: refreshToken cookie never arrived at server
+Fix: secure only in production → HTTP works in tests
+Production (Docker): NODE_ENV=production → secure: true ✓
+Tests (local): NODE_ENV=undefined → secure: false ✓
+
+### Why logout needed both Authorization AND Cookie
+Logout route has authenticateJWT middleware
+authenticateJWT checks Authorization: Bearer {token}
+→ without Bearer token → 401 immediately
+→ controller never runs → refreshToken cookie irrelevant
+Fix: provide both:
+.set('Authorization', `Bearer ${accessToken}`)
+.set('Cookie', `refreshToken=${refreshToken}`)
+Lesson: trace which middleware runs before the controller
+
+### sleep() in pipeline tests
+Pipeline is asynchronous:
+POST /api/logs/ingest → returns 201 immediately
+Background: RabbitMQ → Incident Service → PostgreSQL (~700ms)
+Without sleep: test checks DB at 100ms → incident not created yet
+With sleep(3000): test checks DB at 3000ms → incident exists
+Integration tests must account for async processing time
+
+### INFO logs should NOT create incidents — negative test
+Testing that something does NOT happen is as important
+as testing that it does happen
+countBefore = query incidents
+send INFO log
+sleep(2000)
+countAfter = query incidents
+expect(countAfter).toBe(countBefore) ← no new incidents
+If this fails: system creating false alerts for every log
+
+### Full pipeline traceability test
+Send log → get MongoDB logId from response
+Wait for processing
+Query PostgreSQL for incident WHERE description LIKE '%logId%'
+→ proves THIS specific log created THIS specific incident
+→ not a coincidence from previous test data
+→ verifies the complete chain: log → RabbitMQ → incident
+→ verifies incident description contains correct logId
+
+### Debugging methodology
+1. Read the error type carefully (401 vs 400 vs 500)
+2. Each status code means something specific
+3. 401 = authentication failed (middleware issue)
+4. 400 = bad request (validation issue)
+5. 500 = server error (code bug)
+6. Trace WHERE the error originates (middleware vs controller)
+7. Check environment variables (docker exec container env)
+8. Check what the code actually reads (cat config files)
+9. Form one hypothesis at a time, test it
+10. Eliminate impossible causes first
+
+### supertest vs axios in tests
+supertest: for testing YOUR OWN Express app
+→ no server needed, calls app directly in memory
+→ import app from '../src/app'
+→ request(app).get('/health')
+
+axios: for testing EXTERNAL services
+→ needs real running server
+→ used in platform pipeline tests
+→ calls Docker services via localhost:3000 etc
+
+### DB_PASSWORD empty in .env
+Auth Service uses DB_HOST/PORT/NAME/USER/PASSWORD vars
+.env had DB_PASSWORD= (empty)
+Docker container has DB_PASSWORD=postgres via docker-compose
+Local tests use .env → empty password → auth failed
+SASL error: client password must be a string
+Fix: DB_PASSWORD=postgres in .env
+
+## Problems Faced
+- Cannot find name 'jest' TypeScript error (tsconfig.test.json)
+- SASL: client password must be a string (.env DB_PASSWORD empty)
+- Duplicate key violation on refresh_tokens (same JWT in same second)
+- Coverage threshold failing with integration tests (40% coverage)
+- Logout returning 401 (missing Authorization header)
+- secure: true cookie rejected by supertest (HTTP not HTTPS)
+- Unit test failing after secure fix (expected true got false)
+- @types/pg not installed for platform pipeline tests
+
+## How I Solved Them
+- Created tsconfig.test.json with types: ["jest", "node"]
+- Added DB_PASSWORD=postgres to .env
+- Added ON CONFLICT (token) DO NOTHING to saveRefreshToken
+- Added separate npm scripts for unit vs integration tests
+- Added .set('Authorization', `Bearer ${accessToken}`) to logout test
+- Changed secure: true to secure: process.env.NODE_ENV === 'production'
+- Updated unit test assertion to secure: false
+- npm install --save-dev @types/pg in tests/integration/
+
+## Commands Used
+```bash
+cd services/auth-service-express
+npm install --save-dev supertest @types/supertest
+npm run test:integration
+npm run test:all
+npm test
+
+cd tests/integration
+npm install
+npm install --save-dev @types/pg
+npm test
+
+git add services/auth-service-express/
+git add tests/
+git commit -m "feat(testing): add Auth Service integration tests"
+git commit -m "feat(testing): add platform pipeline integration tests"
+git push origin feature/testing
+```
+
+## Git Branch
+feature/testing
+
+## Next Step
+Phase 12 complete → merge to develop.
+Phase 13 — CI/CD Pipeline (GitHub Actions).
+Write .github/workflows/ci.yml:
+→ On push to develop or main:
+   Run all unit tests for all services
+   Run integration tests if Docker available
+   Build Docker images
+   Push to AWS ECR (after Phase 14 AWS setup)
+→ Automated test gate before every deployment
+→ "All tests must pass before merging"
+

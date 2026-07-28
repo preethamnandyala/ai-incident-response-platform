@@ -4,11 +4,12 @@
   "description": "Authentication service for AI Incident Response Platform",
   "main": "src/server.ts",
   "scripts": {
-    "dev": "ts-node-dev --respawn --transpile-only src/server.ts",
     "build": "tsc",
-    "start": "node dist/server.js",
-    "test": "jest --coverage"
-  },
+    "test": "jest --testPathIgnorePatterns=integration --coverage",
+    "test:integration": "jest --testPathPatterns=integration --no-coverage",
+    "test:all": "jest --no-coverage",
+    "dev": "ts-node-dev --respawn --transpile-only src/server.ts"
+},
   "keywords": [],
   "author": "Hari Preetham Reddy Nandyala",
   "license": "ISC",
@@ -35,7 +36,7 @@
     "@types/passport": "^1.0.17",
     "@types/passport-google-oauth20": "^2.0.17",
     "@types/pg": "^8.20.0",
-    "@types/supertest": "^7.2.0",
+    "@types/supertest": "^7.2.1",
     "jest": "^30.3.0",
     "supertest": "^7.2.2",
     "ts-jest": "^29.4.9",
