@@ -29,7 +29,7 @@ describe('IncidentAI SDK', () => {
     it('should send INFO log with correct payload', async () => {
         await monitor.info('Test message', { userId: '123' })
 
-        expect(mockPost).toHaveBeenCalledWith('/api/logs/', {
+        expect(mockPost).toHaveBeenCalledWith('/api/logs/ingest', {
             level: 'INFO',
             message: 'Test message',
             service_name: 'test-service',
@@ -40,7 +40,7 @@ describe('IncidentAI SDK', () => {
     it('should send WARNING log with correct payload', async () => {
         await monitor.warning('High memory usage', { percent: 85 })
 
-        expect(mockPost).toHaveBeenCalledWith('/api/logs/', {
+        expect(mockPost).toHaveBeenCalledWith('/api/logs/ingest', {
             level: 'WARNING',
             message: 'High memory usage',
             service_name: 'test-service',
@@ -51,7 +51,7 @@ describe('IncidentAI SDK', () => {
     it('should send ERROR log with correct payload', async () => {
         await monitor.error('Database timeout', { duration: 30000 })
 
-        expect(mockPost).toHaveBeenCalledWith('/api/logs/', {
+        expect(mockPost).toHaveBeenCalledWith('/api/logs/ingest', {
             level: 'ERROR',
             message: 'Database timeout',
             service_name: 'test-service',
@@ -62,7 +62,7 @@ describe('IncidentAI SDK', () => {
     it('should send CRITICAL log with correct payload', async () => {
         await monitor.critical('Database lost')
 
-        expect(mockPost).toHaveBeenCalledWith('/api/logs/', {
+        expect(mockPost).toHaveBeenCalledWith('/api/logs/ingest', {
             level: 'CRITICAL',
             message: 'Database lost',
             service_name: 'test-service',
@@ -73,7 +73,7 @@ describe('IncidentAI SDK', () => {
     it('should send empty metadata when not provided', async () => {
         await monitor.info('Simple message')
 
-        expect(mockPost).toHaveBeenCalledWith('/api/logs/', {
+        expect(mockPost).toHaveBeenCalledWith('/api/logs/ingest', {
             level: 'INFO',
             message: 'Simple message',
             service_name: 'test-service',
@@ -113,7 +113,7 @@ describe('IncidentAI SDK', () => {
 
         await customMonitor.error('Payment failed')
 
-        expect(mockPost).toHaveBeenCalledWith('/api/logs/', expect.objectContaining({
+        expect(mockPost).toHaveBeenCalledWith('/api/logs/ingest', expect.objectContaining({
             service_name: 'payment-service'
         }))
     })
