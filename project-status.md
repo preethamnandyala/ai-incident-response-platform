@@ -1,11 +1,10 @@
 # Project Status
 
-Date: 30 July 2026
-Current phase: Phase 12 — Testing (integration tests in progress)
-Completed phases: Phase 0-11
-In progress: Phase 12 — AI Service, Notification Service,
-             API Gateway integration tests remaining
-Last commit: docs(daily-log): add day 21 session log
+Date: 31 July 2026
+Current phase: Phase 13 — CI/CD Pipeline
+Completed phases: Phase 0-12
+In progress: Not started
+Last commit: docs(daily-log): add day 22 session log
 Decisions made:
   ADR-001 through ADR-008
 Blockers: none
