@@ -2727,3 +2727,237 @@ Integration tests for full pipeline.
 Frontend component tests.
 CI/CD pipeline will run these tests automatically.
 Gives confidence before deployment.
+
+---
+
+# Day 19 — 28 July 2026
+
+## Goal
+Begin Phase 12 — Comprehensive Testing.
+Verify all existing tests pass across all services.
+Fix RabbitMQ architecture bug discovered during testing.
+Prepare foundation for integration tests next session.
+
+## Work Completed
+
+### RabbitMQ Architecture Fix (critical bug)
+**Problem discovered:**
+AI Service and Notification Service shared incident.created.queue.
+RabbitMQ round-robin delivery → each message went to ONE consumer.
+50% of incidents had no AI analysis, 50% had no notification.
+Non-deterministic — hard to debug.
+
+**Fix — separate queues per consumer:**
+Added NOTIFICATION_INCIDENT_QUEUE to RabbitMQConfig.java
+Added notificationIncidentBinding() to bind new queue
+Updated Notification Service consumer.py to use notification.incident.queue
+Added queue_bind() call to bind queue to exchange at runtime
+
+**ADR-008 written:**
+docs/adr/ADR-008-separate-rabbitmq-queues-per-consumer.md
+Documents the pub/sub pattern decision and reasoning
+
+### Consumer retry logic
+Added retry loop to notification-service consumer.py:
+retry_delay = 5 seconds
+max_retries = 10 attempts
+On connection failure → wait 5 seconds → retry
+On connection drop mid-run → reconnects automatically
+Prevents silent consumer death when RabbitMQ not ready at startup
+
+### PYTHONUNBUFFERED fix
+Added PYTHONUNBUFFERED: "1" to docker-compose.yml
+for notification-service, log-service, ai-service
+Python buffers output by default in Docker
+Without this: print() statements not visible in docker logs
+With this: every print() appears immediately
+
+### Test verification — all 184 tests passing
+Auth Service (96 tests):
+  Fixed jest.config.js — updated globals syntax to transform syntax
+  Created tsconfig.test.json with types: ["jest", "node"]
+  Includes both src/**/* and tests/**/*
+  All 96 tests passing, 100% coverage, zero warnings
+
+API Gateway (12 tests): 12 passing ✓
+Incident Service (26 tests): 26 passing, BUILD SUCCESS ✓
+Log Service (20 tests): 20 passing ✓
+AI Service (10 tests): 10 passing ✓
+Notification Service (12 tests): 12 passing ✓
+SDK (8 tests):
+  Fixed tests/logger.test.ts — updated /api/logs/ to /api/logs/ingest
+  Endpoint changed in Phase 7 but tests were never updated
+  8 tests passing ✓
+
+### Coverage files cleanup
+Added coverage/ to .gitignore for:
+  services/auth-service-express/
+  services/api-gateway-express/
+  packages/sdk/nodejs/
+Untracked existing coverage files with git rm -r --cached
+39 generated files removed from git tracking
+
+## What I Learned
+
+### Unit tests vs integration tests
+Unit tests (what we have):
+→ Mock all dependencies
+→ Test one function in isolation
+→ Fast — milliseconds each
+→ No infrastructure needed
+→ Cannot catch integration bugs
+
+Integration tests (what we still need):
+→ Real database, real network calls
+→ Test full flow end to end
+→ Slower — seconds each
+→ Requires running infrastructure
+→ Catches bugs unit tests miss
+Example: refresh token missing organizationId bug
+→ unit tests passed (mocked JWT)
+→ only surfaced in real usage after 15 minutes
+
+### Three challenges of integration tests
+Challenge 1 — Test isolation:
+Each test must use unique data or clean up after itself
+Test A creates user@example.com
+Test B tries to create user@example.com → conflict
+Solution: unique email per test or clean DB between tests
+
+Challenge 2 — Test ordering:
+Some tests depend on previous state
+test_login() needs user to exist
+Solution: setup fixtures that create required data before test
+
+Challenge 3 — Speed:
+100 integration tests × 3 seconds = 5 minutes
+Too slow for every code change
+Solution: run unit tests always, integration tests on CI/CD only
+
+### RabbitMQ pub/sub pattern
+Wrong: one queue, multiple consumers → round-robin delivery
+Right: one exchange, multiple queues, one consumer per queue
+Exchange delivers copy to EVERY bound queue
+Each service gets its own independent message stream
+Adding new consumer = add new queue + binding
+No changes to existing services needed
+
+### PYTHONUNBUFFERED
+Python buffers stdout by default:
+print() → internal buffer → flushed when buffer full or process exits
+In Docker: buffer never fills → logs appear only at container stop
+PYTHONUNBUFFERED=1 → disables buffering → every print() immediate
+Node.js: unbuffered by default
+Java: uses logging framework that flushes immediately
+Python: needs explicit PYTHONUNBUFFERED=1
+
+### tsconfig.test.json pattern
+Production tsconfig: rootDir = src, excludes tests
+→ prevents tests from being compiled into dist/
+→ Docker build uses this → correct
+Test tsconfig: rootDir = ., includes tests/**/*
+→ Jest uses this via jest.config.js transform setting
+→ tests can import from src/, jest globals available
+Two separate tsconfig files for two different purposes
+
+### Coverage files in git
+jest --coverage generates HTML, JSON, XML reports in coverage/
+These are generated artifacts — never commit generated files
+Add coverage/ to .gitignore
+If already tracked: git rm -r --cached coverage/
+→ removes from git tracking but keeps files on disk
+Same principle: dist/, __pycache__/, target/, node_modules/
+Never commit generated or compiled files
+
+### SDK endpoint change
+SDK sends to /api/logs/ingest (public, no JWT)
+Tests expected /api/logs/ (old endpoint from Phase 5)
+Changed in Phase 7 but tests not updated → 6 failures
+Fix: update test assertions to match current implementation
+Lesson: when changing an API endpoint, update tests immediately
+sed -i 's|/api/logs/|/api/logs/ingest|g' tests/logger.test.ts
+
+### Why separate test database
+Integration tests write real data to real database
+If using development database:
+→ test data pollutes your development data
+→ test cleanup might delete important development data
+→ tests interfere with manual testing
+Solution: use TEST_DATABASE_URL pointing to separate DB
+Or: use Docker to spin up fresh database for tests
+Incident Service already does this with H2 in-memory DB
+
+## Problems Faced
+- Auth service tests: Cannot find name 'jest' (TypeScript error)
+- SDK tests: 6 failures — wrong endpoint /api/logs/ vs /api/logs/ingest
+- 39 coverage files showing in git staging area
+- Notification Service not receiving RabbitMQ events
+- Consumer dying silently when RabbitMQ not ready
+- Python logs not visible in docker logs
+
+## How I Solved Them
+- Created tsconfig.test.json, updated jest.config.js transform syntax
+- Updated SDK tests: sed replace /api/logs/ → /api/logs/ingest
+- Added coverage/ to .gitignore, git rm -r --cached to untrack
+- Discovered round-robin bug: separate queues per consumer
+- Added retry loop with 10 attempts and 5 second delay
+- Added PYTHONUNBUFFERED=1 to docker-compose.yml environment
+
+## Test Results
+
+Before Phase 12 fixes:
+Auth Service: TypeScript errors — cannot find jest/describe/it
+SDK: 6 tests failing — wrong endpoint
+
+After Phase 12 fixes:
+Auth Service: 96 tests passing, 100% coverage ✓
+API Gateway: 12 tests passing ✓
+Incident Service: 26 tests passing ✓
+Log Service: 20 tests passing ✓
+AI Service: 10 tests passing ✓
+Notification: 12 tests passing ✓
+SDK: 8 tests passing ✓
+Total: 184 tests passing ✓
+
+## Commands Used
+```bash
+cd services/auth-service-express && npm test
+cd services/api-gateway-express && npm test
+cd services/incident-service && ./mvnw test
+cd services/log-service-django && python manage.py test
+cd services/ai-service-fastapi && pytest tests/ -v
+cd services/notification-service-flask && pytest tests/ -v
+cd packages/sdk/nodejs && npm test
+sed -i 's|/api/logs/|/api/logs/ingest|g' packages/sdk/nodejs/tests/logger.test.ts
+echo "coverage/" >> services/auth-service-express/.gitignore
+echo "coverage/" >> services/api-gateway-express/.gitignore
+echo "coverage/" >> packages/sdk/nodejs/.gitignore
+git rm -r --cached services/auth-service-express/coverage/
+git rm -r --cached services/api-gateway-express/coverage/
+git rm -r --cached packages/sdk/nodejs/coverage/
+docker-compose --env-file .env.docker build notification-service incident-service
+docker-compose --env-file .env.docker down
+docker-compose --env-file .env.docker up -d
+docker logs incident-notifications
+curl -X POST http://localhost:3000/api/logs/ingest \
+  -H "Content-Type: application/json" \
+  -H "X-Organization-Id: org_default" \
+  -d '{"level":"CRITICAL","message":"Pipeline test","service_name":"payment-service"}'
+git add .
+git commit -m "fix(tests): fix jest config, update SDK tests, remove coverage from git tracking"
+git commit -m "fix(rabbitmq): separate queues per consumer, retry logic, PYTHONUNBUFFERED"
+git push origin feature/testing
+```
+
+## Git Branch
+feature/testing
+
+## Next Step
+Phase 12 continues — Integration Tests.
+Write integration tests for:
+1. Auth Service — real HTTP calls, real database
+   signup → verify email → login → refresh token flow
+2. API Gateway — JWT forwarding, organizationId header
+3. Pipeline integration test
+   CRITICAL log → incident in PostgreSQL → notification triggered
+4. End-to-end test script for pre-deployment verification
