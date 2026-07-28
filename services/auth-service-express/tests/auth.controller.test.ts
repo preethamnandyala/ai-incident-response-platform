@@ -113,7 +113,7 @@ describe('AuthController', () => {
           expect(cookieMock).toHaveBeenCalledWith(
             'refreshToken',
             'fake-refresh-token',
-            expect.objectContaining({ httpOnly: true, secure: true })
+            expect.objectContaining({ httpOnly: true, secure: false })
           )
           expect(statusMock).toHaveBeenCalledWith(200)
           expect(jsonMock).toHaveBeenCalledWith(

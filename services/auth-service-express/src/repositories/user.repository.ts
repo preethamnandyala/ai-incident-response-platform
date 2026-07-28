@@ -79,7 +79,8 @@ export class UserRepository {
     ): Promise<void> {
         await pool.query(
             `INSERT INTO refresh_tokens (user_id, token)
-             VALUES ($1, $2)`,
+             VALUES ($1, $2)
+             ON CONFLICT (token) DO NOTHING`,
             [userId, token]
         )
     }
